@@ -1,0 +1,291 @@
+<meta charset="UTF-8"> 
+<html lang="en">
+<html>
+	<head>
+		<title>Artificial Amateur</title>
+		<style>
+			@font-face {
+				font-family: 'inconsolata';
+				src: url('fonts/inconsolata.woff') format('woff');
+				font-weight: normal;
+				font-style: normal;
+			}
+			
+			body {
+				margin:0;
+				font-family: 'inconsolata';
+				font-size: 15px;
+				line-height: 18px;
+				overflow: hidden;
+			}
+			
+			canvas {width: 100%; height: 100%; }
+			container {width:100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		<input id="file_selector" type="file" style="visibility:hidden;max-height:0;" onchange='readText(this)'/>
+		<div id="container">
+			
+			<script src = "js/tools/three.min.js"></script>
+			<script src = "js/tools/dat.gui.js"></script>
+			<script src = "js/OrbitControls.js"></script>
+			<script src = "js/tools/jquery.js"></script>
+			<script src = "js/Inset.js"></script>
+			<script src = "js/Widgets.js"></script>
+			<script src = "js/new_Widgets.js"></script>
+			<script src = "js/tools/clipper.js"></script>
+			<script src = "js/decompose.js"></script>
+			<script src = "js/Building.js"></script>
+			<script>
+							
+				var raycaster, mouse, scene, reality
+				
+				var Grid = new THREE.Mesh(new THREE.PlaneGeometry( 10000, 10000),new THREE.MeshBasicMaterial({color: 0xffff00,side: THREE.DoubleSide}));
+				Grid.geometry.rotateX(-Math.PI*0.5);
+				
+				var WORLD = new World_Prim()
+				
+				var track = 0
+				
+				var OBJECTS = []
+				var FOCUS = WORLD
+				var CALL = "move"
+				
+				
+				var textFile = null;
+				makeTextFile = function (text) {
+					var data = new Blob([text], {type: 'text/plain'});
+
+					// If we are replacing a previously generated file we need to
+					// manually revoke the object URL to avoid memory leaks.
+					if (textFile !== null) {
+					  window.URL.revokeObjectURL(textFile);
+					}
+
+					textFile = window.URL.createObjectURL(data);
+
+					window.open(textFile,'blank');
+				};
+				
+				var reader;
+				function checkFileAPI() {
+					if (window.File && window.FileReader && window.FileList && window.Blob) {
+						reader = new FileReader();
+						return true; 
+					} else {
+						alert('The File APIs are not fully supported by your browser. Saving and Loading are not supported.');
+						return false;
+					}
+				}
+				checkFileAPI();
+				function readText(filePath) {
+					var output = ""; //placeholder for text output
+					if(filePath.files && filePath.files[0]) {           
+						reader.onload = function (e) {
+							output = e.target.result;
+							WORLD.applyText(output);
+						};//end onload()
+						reader.readAsText(filePath.files[0]);
+					}//end if html5 filelist support
+					else if(ActiveXObject && filePath) { //fallback to IE 6-8 support via ActiveX
+						try {
+							reader = new ActiveXObject("Scripting.FileSystemObject");
+							var file = reader.OpenTextFile(filePath, 1); //ActiveX File Object
+							output = file.ReadAll(); //text contents of file
+							file.Close(); //close file "input stream"
+							WORLD.applyText(output);
+						} catch (e) {
+							if (e.number == -2146827859) {
+								alert('Unable to access local files due to browser security settings. ' + 
+								 'To overcome this, go to Tools->Internet Options->Security->Custom Level. ' + 
+								 'Find the setting for "Initialize and script ActiveX controls not marked as safe" and change it to "Enable" or "Prompt"'); 
+							}
+						}       
+					}
+					else { //this is where you could fallback to Java Applet, Flash or similar
+						return false;
+					}
+					return true;
+				};
+				function gatherThoughts(text,focus,delim){
+					var thought = "";
+					while(focus<text.length&&text[focus]!=delim){
+						thought+=text[focus++];
+					}
+					focus++;
+					return [thought,focus];
+				}
+				
+				var ROSTER = {
+					setMove : function(){
+						OBJECTS = []
+						WORLD.update()
+						FOCUS.edit()
+						CALL = "move"
+					},
+					setAdd : function(){
+						OBJECTS = []
+						FOCUS.edit()
+						CALL = "add"
+					},
+					setKill : function(){
+						OBJECTS = []
+						FOCUS.edit()
+						CALL = "remove"
+					},
+				}
+				
+				var gui_edit = new dat.GUI()
+				var gui_settings = new dat.GUI();
+				
+				gui_settings.add(WORLD, "save").name("Save");
+				gui_settings.add(WORLD, "load").name("Load");
+				//gui_settings.addColor(WORLD, "worldColor");
+				gui_settings.add(WORLD, "calculateSurfaces").name("Preview");
+				gui_settings.add(WORLD, "exportVMF").name("Export to VMF");
+				
+				gui_edit.add(ROSTER, "setMove").name("Move Mode");
+				gui_edit.add(ROSTER, "setAdd").name("Add Mode");
+				gui_edit.add(ROSTER, "setKill").name("Delete Mode");
+				var folders = [];
+				
+				function createFolder(target){
+					var temp = gui_edit.addFolder( target.name + " Editor:");
+					for(var ii=0;ii<target.details.length;ii++){
+						temp.add(target, target.details[ii]).name(target.details[ii]).onFinishChange(function(){this.object.update()});
+					}
+					folders.push(temp)
+					temp.open()
+				}
+				
+				function resolveFocus(){
+					while(FOCUS.feature){
+						FOCUS = FOCUS.dad
+					}
+					FOCUS.edit();
+					CALL = "move"
+					for(var ii=0;ii<folders.length;ii++){
+						gui_edit.remove(folders[ii])
+					}
+					folders = []
+					if(FOCUS.dad!=undefined){
+						createFolder(FOCUS.dad)
+					}
+					createFolder(FOCUS)
+				}
+				
+				var envLight = new THREE.DirectionalLight( 0xffffff, 1 );
+				var difLight = new THREE.PointLight( 0xffffff, .4 );
+				var lightHelper
+				var light
+				
+				init()
+				FOCUS = WORLD
+				resolveFocus()
+				WORLD.update()
+				animate()
+				
+				
+				function init() {
+					scene = new THREE.Scene();
+					scene.fog = new THREE.FogExp2( 0x111111, 0.00002 );
+
+					renderer = new THREE.WebGLRenderer();
+					renderer.setClearColor( scene.fog.color );
+					renderer.setPixelRatio( window.devicePixelRatio );
+					renderer.setSize( window.innerWidth, window.innerHeight );
+
+					var container = document.getElementById( 'container' );
+					container.appendChild( renderer.domElement );
+
+					camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
+					camera.position.z = 500;
+					camera.position.y = 150;
+					camera.position.x = 150;
+
+					controls = new THREE.OrbitControls( camera, renderer.domElement );
+					//controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
+					controls.enableDamping = true;
+					controls.dampingFactor = 0.25;
+					controls.enableZoom = true;
+					controls.enableKeys = false;
+									
+					// lights-----------------------------------------------------------------------------------------------------
+					envLight.position.set( 1, 1, 1 );
+					envLight.castShadow = true;
+					envLight.angle = Math.PI / 4;
+					envLight.penumbra = 0.05;
+					envLight.decay = 2;
+					envLight.distance = 2000;
+					envLight.shadow.mapSize.width = 1024;
+					envLight.shadow.mapSize.height = 1024;
+					envLight.shadow.camera.near = 1;
+					envLight.shadow.camera.far = 200;
+					difLight.position.set( 0, 64, 0 );
+					difLight.castShadow = true;
+					difLight.penumbra = 0.05;
+					difLight.decay = 2;
+					difLight.distance = 2000;
+					difLight.shadow.mapSize.width = 1024;
+					difLight.shadow.mapSize.height = 1024;
+					difLight.shadow.camera.near = 1;
+					difLight.shadow.camera.far = 200;
+
+					lightHelper = new THREE.SpotLightHelper( envLight );
+					
+					scene.add( envLight );
+					scene.add( difLight );
+				//	scene.add( lightHelper );
+					
+					//light = new THREE.DirectionalLight( 0x002288 );
+					//light.position.set( -1, -1, -1 );
+					//scene.add( light );
+
+					light = new THREE.AmbientLight( 0xffffff, .4 );
+					scene.add( light );
+
+					//
+
+					window.addEventListener( 'resize', onWindowResize, false );
+					
+					//select object
+					raycaster = new THREE.Raycaster();
+					raycaster.linePrecision = 30;
+					mouse = new THREE.Vector2();
+					
+					//document.addEventListener( 'touchstart', onDocumentTouchStart, false );
+					
+					//scene.add(Grid);
+					
+					reality = scene.clone();
+				}
+
+				function onWindowResize() {
+
+					camera.aspect = window.innerWidth / window.innerHeight;
+					camera.updateProjectionMatrix();
+
+					renderer.setSize( window.innerWidth, window.innerHeight );
+
+				}
+
+				function animate() {
+
+					requestAnimationFrame( animate );
+
+					controls.update(); // required if controls.enableDamping = true, or if controls.autoRotate = true
+
+					render();
+
+				}
+
+				function render() {
+				
+					renderer.render( reality, camera );
+
+				}
+			</script>
+		</div>
+	</body>
+</html>

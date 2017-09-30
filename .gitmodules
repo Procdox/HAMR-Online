@@ -1,0 +1,15 @@
+[submodule "js/tools/clipper-lib"]
+	path = js/tools/clipper-lib
+	url = git://github.com/junmer/clipper-lib.git
+[submodule "js/tools/dat.gui"]
+	path = js/tools/dat.gui
+	url = git://github.com/dataarts/dat.gui.git
+[submodule "js/tools/jquery"]
+	path = js/tools/jquery
+	url = git://github.com/jquery/jquery.git
+[submodule "js/tools/three.js"]
+	path = js/tools/three.js
+	url = git://github.com/mrdoob/three.js.git
+[submodule "clipper-lib"]
+	path = clipper-lib
+	url = git://github.com/junmer/clipper-lib.git
