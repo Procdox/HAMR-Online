@@ -35,6 +35,48 @@ function validate(tri,V){
 	return true
 }
 
+function withinTri(point,tri){
+	var A = tri[0].clone().sub(tri[1])
+	var B = tri[2].clone().sub(tri[1])
+	var C = point.clone().sub(tri[1])
+	
+	var dot00 = A.dot(A)
+	var dot01 = A.dot(B)
+	var dot11 = B.dot(B)
+	
+	var dot02 = A.dot(C)
+	var dot12 = B.dot(C)
+
+	// Compute barycentric coordinates
+	var invDenom = 1 / (dot00 * dot11 - dot01 * dot01)
+	var u = (dot11 * dot02 - dot01 * dot12) * invDenom
+	var v = (dot00 * dot12 - dot01 * dot02) * invDenom
+	// Check if point is in triangle
+	if(((u >= 0) && (v >= 0) && (u + v < 1))){
+		return true
+	}
+	return false
+}
+
+function assureWrap(border){
+	if(border[0]==border[border.length-1]){
+		return false
+	}else{
+		border.push(border[0])
+		return true
+	}
+}
+
+function withinBorder(point,border){
+	var temp = decompose_Shape(border)
+	for(var ii=0;ii<temp.length;ii++){
+		if(withinTri(point,[border[temp[ii][0]],border[temp[ii][1]],border[temp[ii][2]]])){
+			return true
+		}
+	}
+	return false
+}
+
 function validate_Shape(shape){
 	for(var ii=1;ii<shape.length-1;ii++){
 		var A = shape[ii-1].clone().sub(shape[ii])
@@ -94,21 +136,17 @@ function merge_Tris(Target, Positions){
 		Target[ii].push(Target[ii][0])
 	}
 	for(var ii=0;ii<Target.length-1;ii++){
-		console.log("outer",ii)
 		var merged = false
 		for(var jj=ii+1;jj<Target.length;jj++){
-			console.log("inner",ii)
 			//find common edge
 			for(var ii_kk = 0;ii_kk<Target[ii].length-1;ii_kk++){
 				for(var jj_kk = 0;jj_kk<Target[jj].length-1;jj_kk++){
 					if(Target[ii][ii_kk]==Target[jj][jj_kk+1] && Target[ii][ii_kk+1]==Target[jj][jj_kk]){
-						console.log("common edge")
 						//common edge!
 						//create merged shape
 						var sample_ii = Target[ii].slice(0,Target[ii].length-1)
 						var sample_jj = Target[jj].slice(0,Target[jj].length-1)
 						var shape = []
-						console.log("A")
 						for(var kk = ii_kk+1; kk!=ii_kk; kk++){
 							if(kk>=sample_ii.length){
 								if(ii_kk==0){break}
@@ -116,7 +154,6 @@ function merge_Tris(Target, Positions){
 							}
 							shape.push(sample_ii[kk])
 						}
-						console.log("B")
 						for(var kk = jj_kk+1; kk!=jj_kk; kk++){
 							if(kk>=sample_jj.length){
 								if(jj_kk==0){break}
@@ -125,15 +162,12 @@ function merge_Tris(Target, Positions){
 							shape.push(sample_jj[kk])
 						}
 						var testshape = []
-						console.log("C")
 						for(var kk=0;kk<shape.length;kk++){
 							testshape.push(Positions[shape[kk]])
 						}
 						testshape.push(Positions[shape[0]])
 						testshape.push(Positions[shape[1]])
-						console.log("validating")
 						if(validate_Shape(testshape)){
-							console.log("valid")
 							shape.push(shape[0])
 							Target[ii] = shape
 							Target.splice(jj,1)

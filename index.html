@@ -26,32 +26,40 @@
 	<body>
 		<input id="file_selector" type="file" style="visibility:hidden;max-height:0;" onchange='readText(this)'/>
 		<div id="container">
+			<script src = "tools/jquery.js"></script>
+			<script src = "tools/three.min.js"></script>
+			<script src = "tools/dat.gui.js"></script>
+			<script src = "tools/clipper.js"></script>
 			
-			<script src = "js/tools/three.min.js"></script>
-			<script src = "js/tools/dat.gui.js"></script>
-			<script src = "js/OrbitControls.js"></script>
-			<script src = "js/tools/jquery.js"></script>
-			<script src = "js/Inset.js"></script>
-			<script src = "js/Widgets.js"></script>
-			<script src = "js/new_Widgets.js"></script>
-			<script src = "js/tools/clipper.js"></script>
 			<script src = "js/decompose.js"></script>
-			<script src = "js/Building.js"></script>
+			<script src = "js/Widgets.js"></script>
+			<script src = "js/Hierarchy.js"></script>
+			<script src = "js/HamrControls.js"></script>
 			<script>
-							
-				var raycaster, mouse, scene, reality
+			
+				var gridMaterial = new THREE.LineBasicMaterial({color: new THREE.Color(.4,.4,.4)})
+				gridMaterial.transparent = true
+				gridMaterial.opacity = 0.4
 				
-				var Grid = new THREE.Mesh(new THREE.PlaneGeometry( 10000, 10000),new THREE.MeshBasicMaterial({color: 0xffff00,side: THREE.DoubleSide}));
-				Grid.geometry.rotateX(-Math.PI*0.5);
-				
-				var WORLD = new World_Prim()
-				
-				var track = 0
-				
-				var OBJECTS = []
-				var FOCUS = WORLD
-				var CALL = "move"
-				
+				function VisibleGridCreator(size,width){
+					var visibleGrid = new THREE.Object3D();
+					//do horizontal and vertical lines
+					for(var ii=0;ii<Math.floor(width/size)+1;ii++){
+						var geo = new THREE.Geometry();
+						geo.vertices.push(
+							new THREE.Vector3(-width/2,-.5,ii*size-width/2),
+							new THREE.Vector3(width/2,-.5,ii*size-width/2)
+						)
+						visibleGrid.children.push(new THREE.Line(geo,gridMaterial));
+						geo = new THREE.Geometry();
+						geo.vertices.push(
+							new THREE.Vector3(ii*size-width/2,-.5,-width/2),
+							new THREE.Vector3(ii*size-width/2,-.5,width/2)
+						)
+						visibleGrid.children.push(new THREE.Line(geo,gridMaterial));
+					}
+					reality.add(visibleGrid);
+				}
 				
 				var textFile = null;
 				makeTextFile = function (text) {
@@ -65,7 +73,7 @@
 
 					textFile = window.URL.createObjectURL(data);
 
-					window.open(textFile,'blank');
+					window.open(textFile,'_blank');
 				};
 				
 				var reader;
@@ -84,7 +92,7 @@
 					if(filePath.files && filePath.files[0]) {           
 						reader.onload = function (e) {
 							output = e.target.result;
-							WORLD.applyText(output);
+							WORLD.parse_Load_File(output);
 						};//end onload()
 						reader.readAsText(filePath.files[0]);
 					}//end if html5 filelist support
@@ -94,7 +102,7 @@
 							var file = reader.OpenTextFile(filePath, 1); //ActiveX File Object
 							output = file.ReadAll(); //text contents of file
 							file.Close(); //close file "input stream"
-							WORLD.applyText(output);
+							WORLD.parse_Load_File(output);
 						} catch (e) {
 							if (e.number == -2146827859) {
 								alert('Unable to access local files due to browser security settings. ' + 
@@ -116,74 +124,30 @@
 					focus++;
 					return [thought,focus];
 				}
+							
+				var raycaster, mouse, scene, reality	
 				
-				var ROSTER = {
-					setMove : function(){
-						OBJECTS = []
-						WORLD.update()
-						FOCUS.edit()
-						CALL = "move"
-					},
-					setAdd : function(){
-						OBJECTS = []
-						FOCUS.edit()
-						CALL = "add"
-					},
-					setKill : function(){
-						OBJECTS = []
-						FOCUS.edit()
-						CALL = "remove"
-					},
-				}
+				var Grid_geo = new THREE.PlaneGeometry( 10000, 10000)
+				var Grid = new THREE.Mesh(Grid_geo,new THREE.MeshBasicMaterial({color: 0xffff00,side: THREE.DoubleSide}));
+				Grid.geometry.rotateX(-Math.PI*0.5);
 				
-				var gui_edit = new dat.GUI()
-				var gui_settings = new dat.GUI();
+				var Pole_geo = new THREE.Geometry()
+				Pole_geo.vertices.push(
+					new THREE.Vector3(0,-1000,0),
+					new THREE.Vector3(0,1000,0)
+				)
+				var Pole = new THREE.Line(Pole_geo,new THREE.MeshBasicMaterial({color: 0xffff00,side: THREE.DoubleSide}));
 				
-				gui_settings.add(WORLD, "save").name("Save");
-				gui_settings.add(WORLD, "load").name("Load");
-				//gui_settings.addColor(WORLD, "worldColor");
-				gui_settings.add(WORLD, "calculateSurfaces").name("Preview");
-				gui_settings.add(WORLD, "exportVMF").name("Export to VMF");
-				
-				gui_edit.add(ROSTER, "setMove").name("Move Mode");
-				gui_edit.add(ROSTER, "setAdd").name("Add Mode");
-				gui_edit.add(ROSTER, "setKill").name("Delete Mode");
-				var folders = [];
-				
-				function createFolder(target){
-					var temp = gui_edit.addFolder( target.name + " Editor:");
-					for(var ii=0;ii<target.details.length;ii++){
-						temp.add(target, target.details[ii]).name(target.details[ii]).onFinishChange(function(){this.object.update()});
-					}
-					folders.push(temp)
-					temp.open()
-				}
-				
-				function resolveFocus(){
-					while(FOCUS.feature){
-						FOCUS = FOCUS.dad
-					}
-					FOCUS.edit();
-					CALL = "move"
-					for(var ii=0;ii<folders.length;ii++){
-						gui_edit.remove(folders[ii])
-					}
-					folders = []
-					if(FOCUS.dad!=undefined){
-						createFolder(FOCUS.dad)
-					}
-					createFolder(FOCUS)
-				}
+				var OBJECTS = []
+				var CALL = "h_move"
 				
 				var envLight = new THREE.DirectionalLight( 0xffffff, 1 );
 				var difLight = new THREE.PointLight( 0xffffff, .4 );
-				var lightHelper
-				var light
+				var ambLight = new THREE.AmbientLight( 0xffffff, .4 );
 				
 				init()
-				FOCUS = WORLD
-				resolveFocus()
-				WORLD.update()
+				var WORLD = new Hamr_Hierarchy()
+				WORLD.restart()
 				animate()
 				
 				
@@ -199,21 +163,24 @@
 					var container = document.getElementById( 'container' );
 					container.appendChild( renderer.domElement );
 
-					camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
-					camera.position.z = 500;
-					camera.position.y = 150;
-					camera.position.x = 150;
+					camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 7000 );
+					
+					camera.position.x = 0;
+					camera.position.y = 300;
+					camera.position.z = 0;
 
-					controls = new THREE.OrbitControls( camera, renderer.domElement );
+					controls = new THREE.HamrControls( camera );
+					
+					
 					//controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
 					controls.enableDamping = true;
 					controls.dampingFactor = 0.25;
 					controls.enableZoom = true;
-					controls.enableKeys = false;
-									
+					controls.enableKeys = true;
+					
 					// lights-----------------------------------------------------------------------------------------------------
 					envLight.position.set( 1, 1, 1 );
-					envLight.castShadow = true;
+					envLight.castShadow = false;
 					envLight.angle = Math.PI / 4;
 					envLight.penumbra = 0.05;
 					envLight.decay = 2;
@@ -222,8 +189,8 @@
 					envLight.shadow.mapSize.height = 1024;
 					envLight.shadow.camera.near = 1;
 					envLight.shadow.camera.far = 200;
-					difLight.position.set( 0, 64, 0 );
-					difLight.castShadow = true;
+					difLight.position.set( 0, 128, 0 );
+					difLight.castShadow = false;
 					difLight.penumbra = 0.05;
 					difLight.decay = 2;
 					difLight.distance = 2000;
@@ -231,27 +198,16 @@
 					difLight.shadow.mapSize.height = 1024;
 					difLight.shadow.camera.near = 1;
 					difLight.shadow.camera.far = 200;
-
-					lightHelper = new THREE.SpotLightHelper( envLight );
 					
 					scene.add( envLight );
 					scene.add( difLight );
-				//	scene.add( lightHelper );
-					
-					//light = new THREE.DirectionalLight( 0x002288 );
-					//light.position.set( -1, -1, -1 );
-					//scene.add( light );
-
-					light = new THREE.AmbientLight( 0xffffff, .4 );
-					scene.add( light );
-
-					//
+					scene.add( ambLight );
 
 					window.addEventListener( 'resize', onWindowResize, false );
 					
 					//select object
 					raycaster = new THREE.Raycaster();
-					raycaster.linePrecision = 30;
+					raycaster.linePrecision = 10;
 					mouse = new THREE.Vector2();
 					
 					//document.addEventListener( 'touchstart', onDocumentTouchStart, false );

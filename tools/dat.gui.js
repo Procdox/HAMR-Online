@@ -2522,6 +2522,7 @@ dat.GUI = dat.gui.GUI = (function (css, saveDialogueContents, styleSheet, contro
 
     // Does the object we're controlling match anything we've been told to
     // remember?
+	
     var matched_index = root.__rememberedObjects.indexOf(controller.object);
 
     // Why yes, it does!
