@@ -1,13 +1,15 @@
 function validate(tri,V){
+	//takes in a position array and an index triple
+	//outputs if position triple the index triple points to is a valid TRI
 	var A = V[tri[0]].clone().sub(V[tri[1]])
 	var B = V[tri[2]].clone().sub(V[tri[1]])
 	var C = new THREE.Vector3()
-	
+
 	var dot00 = A.dot(A)
 	var dot01 = A.dot(B)
 	var dot11 = B.dot(B)
-	
-	
+
+
 	var ox = A.x
 	A.x = -A.z
 	A.z = ox
@@ -19,7 +21,7 @@ function validate(tri,V){
 		if(V[ii].distanceTo(V[tri[1]])==0){continue}
 		if(V[ii].distanceTo(V[tri[2]])==0){continue}
 		C = V[ii].clone().sub(V[tri[1]])
-		
+
 		var dot02 = A.dot(C)
 		var dot12 = B.dot(C)
 
@@ -39,11 +41,11 @@ function withinTri(point,tri){
 	var A = tri[0].clone().sub(tri[1])
 	var B = tri[2].clone().sub(tri[1])
 	var C = point.clone().sub(tri[1])
-	
+
 	var dot00 = A.dot(A)
 	var dot01 = A.dot(B)
 	var dot11 = B.dot(B)
-	
+
 	var dot02 = A.dot(C)
 	var dot12 = B.dot(C)
 
@@ -78,6 +80,8 @@ function withinBorder(point,border){
 }
 
 function validate_Shape(shape){
+	//takes in a position path
+	//outputs if it is a valid convex shape
 	for(var ii=1;ii<shape.length-1;ii++){
 		var A = shape[ii-1].clone().sub(shape[ii])
 		var B = shape[ii+1].clone().sub(shape[ii])
@@ -90,53 +94,66 @@ function validate_Shape(shape){
 }
 
 function decompose_Shape(Target){
+	//takes a position path in
+	//outputs an array of index triples indicating a legal triangulation
+	if(Target.length<3){
+		return [];
+	}
+
 	var faces = []
 	var nT = []
 	var Ti = []
-	
-	for(var ii=0;ii<Target.length;ii++){
+
+	nT.push(0)
+	nT.push(1)
+	nT.push(2)
+
+	for(var ii=3;ii<Target.length;ii++){
 		Ti.push(ii)
 	}
-	
-	nT.push(Ti.splice(0,1)[0])
-	nT.push(Ti.splice(0,1)[0])
-	nT.push(Ti.splice(0,1)[0])
-	
+
 	var safety = 100
 	while(true){
 		safety--
 		if(safety<0){break}
-		
+
 		if(validate(nT,Target)){
-			//make triangle
 			faces.push([nT[0],nT[1],nT[2]])
-			
-			
+
 			nT[1] = nT[2]
 		}else{
 			Ti.push(nT[0])
+
 			nT[0] = nT[1]
 			nT[1] = nT[2]
 		}
+
 		if(Ti.length<1){
 			break
 		}
-		
+
 		nT[2] = Ti.splice(0,1)[0]
+
 		if(nT.indexOf(undefined)>=0){
 			break
 		}
 	}
+
 	if(safety<0){console.log("Could not decompose surface")}
 	return faces
 }
 
 function merge_Tris(Target, Positions){
+	//takes in an array of index triples representing a triangulation and
+	//	an array of positions
+	//outputs
 	for(var ii=0;ii<Target.length;ii++){
 		Target[ii].push(Target[ii][0])
 	}
+
 	for(var ii=0;ii<Target.length-1;ii++){
 		var merged = false
+
 		for(var jj=ii+1;jj<Target.length;jj++){
 			//find common edge
 			for(var ii_kk = 0;ii_kk<Target[ii].length-1;ii_kk++){
@@ -189,8 +206,42 @@ function merge_Tris(Target, Positions){
 			ii--
 		}
 	}
+
 	for(var ii=0;ii<Target.length;ii++){
 		Target[ii] = Target[ii].slice(0,Target[ii].length-1)
 	}
+
+	for(var ii=0;ii<Target.length;ii++){
+		var last = Target[ii].length-2;
+		var current = Target[ii].length-1;
+
+		var end = Target[ii][Target[ii].length-1]
+		var start = Target[ii][0]
+
+		Target[ii].splice(Target[ii].length,0,start)
+		Target[ii].splice(0,0,end)
+
+		for(var jj=1;jj<Target[ii].length-1;jj++){
+
+			//remove current if dot product is one
+			var n = Positions[Target[ii][jj+1]].clone()
+			var c = Positions[Target[ii][jj]].clone()
+			var l = Positions[Target[ii][jj-1]].clone()
+
+			var A = n.clone().sub(l)
+			var B = c.clone().sub(l)
+
+			if(A.x*B.x + A.z*B.z > .99999*A.length()*B.length()){
+				Target[ii].splice(jj,1)
+				jj--
+
+				continue
+			}
+		}
+		Target[ii].splice(Target[ii].length-1,1)
+		Target[ii].splice(0,1)
+	}
+
+
 	return Target
 }
