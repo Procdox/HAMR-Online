@@ -689,7 +689,8 @@ class Hamr_Room_Element extends Hamr_Element{
 		this.height = 192
 		this.playerclip = true
 		this.foundation = true
-		//this.ceiling = true  //add me, if false, extend walls to roof and subtract room ceiling from roof
+		//this.ceiling = true  //add me... if false:
+		//extend walls to roof and subtract room ceiling from roof
 		this.settings.push("height","playerclip","foundation")
 		this.settingtitles.push("Height","Playerclip Roof","Connect to Ground")
 		this.settingtypes.push(1,2,2)
@@ -715,7 +716,8 @@ class Hamr_Room_Element extends Hamr_Element{
 			current_target.restrict(extension)
 			for(var jj=ii+1;jj<sorted_children.length;jj++){
 				if(!sorted_children[jj].underfill){
-					if(sorted_children[jj].elevation - sorted_children[jj].thickness >= sorted_children[ii].elevation + sorted_children[ii].height){
+					if(sorted_children[jj].elevation - sorted_children[jj].thickness
+						>= sorted_children[ii].elevation + sorted_children[ii].height){
 						continue
 					}
 				}
@@ -723,18 +725,47 @@ class Hamr_Room_Element extends Hamr_Element{
 				current_target.subtract(current_subtraction)
 			}
 			var reals = current_target.gen_Simple_Paths()
-			if(sorted_children[ii].name=="Ramp"){
+			if(sorted_children[ii].name == "Ramp"){
 				if(sorted_children[ii].steps<=1){
 					for(var jj=0;jj<reals.length;jj++){
 						reals[jj].reverse()
-						var surface = new PRIM_RAMP(sorted_children[ii].control.flatten(),reals[jj],sorted_children[ii].height,sorted_children[ii].elevation)
-						surface.front_material = Mat_Blu_Detail
-						surface.edge_material = Mat_Blu_Wall
-						surface.back_material = Mat_Blu_Detail
-						surface.detail = true
-						product.push(surface)
+
+						var Ramp = new PRIM_RAMP(sorted_children[ii].control.flatten(),
+						reals[jj],sorted_children[ii].height,sorted_children[ii].elevation)
+
+						Ramp.back_material = Mat_Blu_Detail
+						Ramp.edge_material = Mat_Blu_Wall
+
+						if(sorted_children[ii].underfill){
+							Ramp.front_material = Mat_Nodraw
+							if(sorted_children[ii].elevation - this.elevation>0){
+								var temp_border = new Border_Widget()
+								for(var kk=0;kk<reals[jj].length;kk++){
+									temp_border.vertices.push(
+										new Point_Widget(reals[jj][kk], temp_border))
+								}
+								var surface = new PRIM_SURFACE(temp_border,
+									new THREE.Vector3(0,-1,0))
+
+								surface.front_material = Mat_Nodraw
+								surface.edge_material = Mat_Blu_Wall
+								surface.back_material = Mat_Nodraw
+
+								surface.thickness = sorted_children[ii].elevation - this.elevation
+
+								product.push(surface)
+							}
+						}
+						else{
+							Ramp.front_material = Mat_Blu_Detail
+							Ramp.thickness = sorted_children[ii].thickness
+						}
+
+						Ramp.detail = true
+						product.push(Ramp)
 					}
-				}else{
+				}
+				else{
 					//var generate step pattern
 					var steps = []
 					var original = sorted_children[ii].control.flatten()
@@ -762,37 +793,63 @@ class Hamr_Room_Element extends Hamr_Element{
 								}
 								step_part.detail = true
 								product.push(step_part)
+
 								var temp_border = new Border_Widget()
+								var y_offset = step_height*jj + sorted_children[ii].elevation
 								for(var mm=0;mm<step[nn].length;mm++){
 									var pos = step[nn][mm].clone()
-									pos.y = step_height*jj + sorted_children[ii].elevation
+									pos.y = y_offset
 									temp_border.vertices.push(new Point_Widget(pos,temp_border))
 								}
 								var surface = new PRIM_SURFACE(temp_border,new THREE.Vector3(0,-1,0))
 								surface.front_material = Mat_Blu_Detail
 								surface.edge_material = Mat_Blu_Wall
-								surface.back_material = Mat_Blu_Detail
+
+
+								//replace this with PROPER stair underfill:
+								//step inverted ramps, single main ramp, block underfill
+								if(sorted_children[ii].underfill ||
+									surface.thickness > y_offset - this.elevation){
+									surface.back_material = Mat_Nodraw
+								}else{
+									surface.thickness = surface.thickness
+								}
+
+								if(!sorted_children[ii].underfill){
+
+								}
+
 								surface.detail = true
-								product.push(surface)
+								if(surface.thickness > 0){
+									product.push(surface)
+								}
 							}
-
 						}
-
-
 					}
 				}
-
-			}else{
+			}
+			else if(sorted_children[ii].name == "Platform"){
 				for(var jj=0;jj<reals.length;jj++){
 					reals[jj].reverse()
 					var temp_border = new Border_Widget()
 					for(var kk=0;kk<reals[jj].length;kk++){
-						temp_border.vertices.push(new Point_Widget(reals[jj][kk],temp_border))
+						temp_border.vertices.push(
+							new Point_Widget(reals[jj][kk], temp_border))
 					}
 					var surface = new PRIM_SURFACE(temp_border,new THREE.Vector3(0,-1,0))
 					surface.front_material = Mat_Blu_Detail
 					surface.edge_material = Mat_Blu_Wall
-					surface.back_material = Mat_Blu_Detail
+
+					if(sorted_children[ii].underfill){
+						surface.back_material = Mat_Nodraw
+						surface.thickness = sorted_children[ii].elevation - this.elevation
+					}
+					else{
+						surface.back_material = Mat_Blu_Detail
+						surface.thickness = sorted_children[ii].thickness
+					}
+
+
 					surface.detail = true
 					product.push(surface)
 				}
