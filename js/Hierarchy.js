@@ -751,7 +751,8 @@ class Hamr_Room_Element extends Hamr_Element{
 								surface.edge_material = Mat_Blu_Wall
 								surface.back_material = Mat_Nodraw
 
-								surface.thickness = sorted_children[ii].elevation - this.elevation
+								surface.thickness = sorted_children[ii].elevation
+								 - this.elevation
 
 								product.push(surface)
 							}
@@ -811,12 +812,10 @@ class Hamr_Room_Element extends Hamr_Element{
 								if(sorted_children[ii].underfill ||
 									surface.thickness > y_offset - this.elevation){
 									surface.back_material = Mat_Nodraw
+									surface.thickness = y_offset - this.elevation
 								}else{
+									surface.back_material = Mat_Blu_Detail
 									surface.thickness = surface.thickness
-								}
-
-								if(!sorted_children[ii].underfill){
-
 								}
 
 								surface.detail = true
@@ -840,18 +839,20 @@ class Hamr_Room_Element extends Hamr_Element{
 					surface.front_material = Mat_Blu_Detail
 					surface.edge_material = Mat_Blu_Wall
 
-					if(sorted_children[ii].underfill){
+					if(sorted_children[ii].underfill ||
+						surface.thickness > sorted_children[ii].elevation - this.elevation){
 						surface.back_material = Mat_Nodraw
 						surface.thickness = sorted_children[ii].elevation - this.elevation
-					}
-					else{
+					}else{
 						surface.back_material = Mat_Blu_Detail
-						surface.thickness = sorted_children[ii].thickness
+						surface.thickness = surface.thickness
 					}
 
 
 					surface.detail = true
-					product.push(surface)
+					if(surface.thickness>0){
+						product.push(surface)
+					}
 				}
 			}
 		}
