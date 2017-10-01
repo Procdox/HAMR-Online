@@ -1,4 +1,4 @@
-<meta charset="UTF-8"> 
+<meta charset="UTF-8">
 <html lang="en">
 <html>
 	<head>
@@ -10,7 +10,7 @@
 				font-weight: normal;
 				font-style: normal;
 			}
-			
+
 			body {
 				margin:0;
 				font-family: 'inconsolata';
@@ -18,7 +18,7 @@
 				line-height: 18px;
 				overflow: hidden;
 			}
-			
+
 			canvas {width: 100%; height: 100%; }
 			container {width:100%; height: 100% }
 		</style>
@@ -30,17 +30,19 @@
 			<script src = "tools/three.min.js"></script>
 			<script src = "tools/dat.gui.js"></script>
 			<script src = "tools/clipper.js"></script>
-			
+
+			<script src = "js/Materials.js"></script>
+			<script src = "js/Primitives.js"></script>
 			<script src = "js/decompose.js"></script>
 			<script src = "js/Widgets.js"></script>
 			<script src = "js/Hierarchy.js"></script>
 			<script src = "js/HamrControls.js"></script>
 			<script>
-			
+
 				var gridMaterial = new THREE.LineBasicMaterial({color: new THREE.Color(.4,.4,.4)})
 				gridMaterial.transparent = true
 				gridMaterial.opacity = 0.4
-				
+
 				function VisibleGridCreator(size,width){
 					var visibleGrid = new THREE.Object3D();
 					//do horizontal and vertical lines
@@ -60,7 +62,7 @@
 					}
 					reality.add(visibleGrid);
 				}
-				
+
 				var textFile = null;
 				makeTextFile = function (text) {
 					var data = new Blob([text], {type: 'text/plain'});
@@ -75,12 +77,12 @@
 
 					window.open(textFile,'_blank');
 				};
-				
+
 				var reader;
 				function checkFileAPI() {
 					if (window.File && window.FileReader && window.FileList && window.Blob) {
 						reader = new FileReader();
-						return true; 
+						return true;
 					} else {
 						alert('The File APIs are not fully supported by your browser. Saving and Loading are not supported.');
 						return false;
@@ -89,7 +91,7 @@
 				checkFileAPI();
 				function readText(filePath) {
 					var output = ""; //placeholder for text output
-					if(filePath.files && filePath.files[0]) {           
+					if(filePath.files && filePath.files[0]) {
 						reader.onload = function (e) {
 							output = e.target.result;
 							WORLD.parse_Load_File(output);
@@ -105,11 +107,11 @@
 							WORLD.parse_Load_File(output);
 						} catch (e) {
 							if (e.number == -2146827859) {
-								alert('Unable to access local files due to browser security settings. ' + 
-								 'To overcome this, go to Tools->Internet Options->Security->Custom Level. ' + 
-								 'Find the setting for "Initialize and script ActiveX controls not marked as safe" and change it to "Enable" or "Prompt"'); 
+								alert('Unable to access local files due to browser security settings. ' +
+								 'To overcome this, go to Tools->Internet Options->Security->Custom Level. ' +
+								 'Find the setting for "Initialize and script ActiveX controls not marked as safe" and change it to "Enable" or "Prompt"');
 							}
-						}       
+						}
 					}
 					else { //this is where you could fallback to Java Applet, Flash or similar
 						return false;
@@ -124,33 +126,33 @@
 					focus++;
 					return [thought,focus];
 				}
-							
-				var raycaster, mouse, scene, reality	
-				
+
+				var raycaster, mouse, scene, reality
+
 				var Grid_geo = new THREE.PlaneGeometry( 10000, 10000)
 				var Grid = new THREE.Mesh(Grid_geo,new THREE.MeshBasicMaterial({color: 0xffff00,side: THREE.DoubleSide}));
 				Grid.geometry.rotateX(-Math.PI*0.5);
-				
+
 				var Pole_geo = new THREE.Geometry()
 				Pole_geo.vertices.push(
 					new THREE.Vector3(0,-1000,0),
 					new THREE.Vector3(0,1000,0)
 				)
 				var Pole = new THREE.Line(Pole_geo,new THREE.MeshBasicMaterial({color: 0xffff00,side: THREE.DoubleSide}));
-				
+
 				var OBJECTS = []
 				var CALL = "h_move"
-				
+
 				var envLight = new THREE.DirectionalLight( 0xffffff, 1 );
 				var difLight = new THREE.PointLight( 0xffffff, .4 );
 				var ambLight = new THREE.AmbientLight( 0xffffff, .4 );
-				
+
 				init()
 				var WORLD = new Hamr_Hierarchy()
 				WORLD.restart()
 				animate()
-				
-				
+
+
 				function init() {
 					scene = new THREE.Scene();
 					scene.fog = new THREE.FogExp2( 0x111111, 0.00002 );
@@ -164,20 +166,20 @@
 					container.appendChild( renderer.domElement );
 
 					camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 7000 );
-					
+
 					camera.position.x = 0;
 					camera.position.y = 300;
 					camera.position.z = 0;
 
 					controls = new THREE.HamrControls( camera );
-					
-					
+
+
 					//controls.addEventListener( 'change', render ); // add this only if there is no animation loop (requestAnimationFrame)
 					controls.enableDamping = true;
 					controls.dampingFactor = 0.25;
 					controls.enableZoom = true;
 					controls.enableKeys = true;
-					
+
 					// lights-----------------------------------------------------------------------------------------------------
 					envLight.position.set( 1, 1, 1 );
 					envLight.castShadow = false;
@@ -198,22 +200,22 @@
 					difLight.shadow.mapSize.height = 1024;
 					difLight.shadow.camera.near = 1;
 					difLight.shadow.camera.far = 200;
-					
+
 					scene.add( envLight );
 					scene.add( difLight );
 					scene.add( ambLight );
 
 					window.addEventListener( 'resize', onWindowResize, false );
-					
+
 					//select object
 					raycaster = new THREE.Raycaster();
 					raycaster.linePrecision = 10;
 					mouse = new THREE.Vector2();
-					
+
 					//document.addEventListener( 'touchstart', onDocumentTouchStart, false );
-					
+
 					//scene.add(Grid);
-					
+
 					reality = scene.clone();
 				}
 
@@ -237,7 +239,7 @@
 				}
 
 				function render() {
-				
+
 					renderer.render( reality, camera );
 
 				}

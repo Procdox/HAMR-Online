@@ -6,8 +6,13 @@ function SnapToGrid(v){
 }
 
 var POINT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.4,.4,.4)});
+var SEL_POINT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.7,.7,.7)});
+
 var BORDER_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.1,.4,.1)});
+var SEL_BORDER_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.1,.4,.4)});
+
 var HEIGHT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.3,.3,.5)});
+
 var BORDER_DELIM = ":"
 var POINT_DELIM = ","
 
@@ -85,6 +90,7 @@ function Square_Border(size,elevation,dad){
 	return product
 }
 
+
 var Border_Widget = function(dad){
 	this.feature = 1
 	this.material = BORDER_MATERIAL.clone()
@@ -141,7 +147,7 @@ var Border_Widget = function(dad){
 		this.update()
 	}
 	this.move = function(vector){
-		
+
 		for(var ii=0;ii<this.vertices.length;ii++){
 			this.vertices[ii].move(vector);
 		}
@@ -224,7 +230,7 @@ var Border_Widget = function(dad){
 		var vectorA = this.vertices[1].position.clone().sub(this.vertices[0].position).normalize()
 		var vectorB = this.vertices[2].position.clone().sub(this.vertices[0].position).normalize()
 		var normal = vectorA.cross(vectorB).normalize()
-		
+
 		return normal
 	}
 	this.parse_Load_Text = function(worldText){
@@ -247,6 +253,7 @@ var Border_Widget = function(dad){
 		return total
 	}
 }
+
 
 var Plane_Widget = function(dad){
 	this.feature = 1
@@ -304,7 +311,7 @@ var Plane_Widget = function(dad){
 		this.update()
 	}
 	this.move = function(vector){
-		
+
 		for(var ii=0;ii<this.vertices.length;ii++){
 			this.vertices[ii].move(vector);
 		}
@@ -387,7 +394,7 @@ var Plane_Widget = function(dad){
 		var vectorA = this.vertices[1].position.clone().sub(this.vertices[0].position).normalize()
 		var vectorB = this.vertices[2].position.clone().sub(this.vertices[0].position).normalize()
 		var normal = vectorA.cross(vectorB).normalize()
-		
+
 		return normal
 	}
 	this.parse_Load_Text = function(worldText){

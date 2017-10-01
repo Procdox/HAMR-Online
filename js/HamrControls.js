@@ -15,7 +15,7 @@ THREE.HamrControls = function ( camera ) {
 	var yawObject = new THREE.Object3D();
 	yawObject.position.y = 10;
 	yawObject.add( pitchObject );
-	
+
 	var moveForward = false;
 	var moveBackward = false;
 	var moveLeft = false;
@@ -29,7 +29,7 @@ THREE.HamrControls = function ( camera ) {
 	var velocity = new THREE.Vector3()
 
 	var PI_2 = Math.PI / 2;
-	
+
 	var onKeyDown = function ( event ) {
 
 		switch ( event.keyCode ) {
@@ -44,7 +44,7 @@ THREE.HamrControls = function ( camera ) {
 				rotLeft = true;
 				break
 			case 65: // a
-				moveLeft = true; 
+				moveLeft = true;
 				break;
 			case 40: // down
 				rotDown = true;
@@ -76,7 +76,7 @@ THREE.HamrControls = function ( camera ) {
 				rotLeft = false;
 				break
 			case 65: // a
-				moveLeft = false; 
+				moveLeft = false;
 				break;
 			case 40: // down
 				rotDown = false;
@@ -106,32 +106,32 @@ THREE.HamrControls = function ( camera ) {
 
 		if ( moveLeft ) velocity.x -= 7000.0 * delta;
 		if ( moveRight ) velocity.x += 7000.0 * delta;
-		
+
 		if ( rotUp ) pitchObject.rotation.x += 2.2 * delta;
 		if ( rotDown ) pitchObject.rotation.x -= 2.2 * delta;
-		
+
 		pitchObject.rotation.x = Math.max( - PI_2, Math.min( PI_2, pitchObject.rotation.x ) );
 
 		if ( rotLeft ) yawObject.rotation.y += 2.2 * delta;
 		if ( rotRight ) yawObject.rotation.y -= 2.2 * delta;
 
-		
+
 		var relative_velocity = velocity.clone().applyEuler( pitchObject.rotation )
-		
+
 		yawObject.translateX( relative_velocity.x * delta );
 		yawObject.translateY( relative_velocity.y * delta );
 		yawObject.translateZ( relative_velocity.z * delta );
 
 		prevTime = time;
 	}
-	
+
 	var setGridHeight = function(y){
 		var offset = new THREE.Vector3(0,y - Grid.position.y, 0)
 		Grid.position.add(offset)
 		Grid.updateMatrix();
 		console.log(Grid.position)
 	}
-	
+
 	var makeGrid = function(y){
 		Grid_geo = new THREE.Geometry()
 		Grid_geo.vertices.push(
@@ -144,10 +144,10 @@ THREE.HamrControls = function ( camera ) {
 			new THREE.Face3(0,1,3),
 			new THREE.Face3(3,1,2)
 		)
-		
+
 		Grid = new THREE.Mesh(Grid_geo,new THREE.MeshBasicMaterial({color: 0xffff00,side: THREE.DoubleSide}));
 	}
-	
+
 	var onMouseDown = function( event ){
 		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
 		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
@@ -157,43 +157,43 @@ THREE.HamrControls = function ( camera ) {
 			//drag/place event
 			if(CALL=="h_move"){
 				var intersects = raycaster.intersectObjects( OBJECTS )
-				
+
 				if(intersects.length>0){
 					selectedPoint = intersects[ 0 ].point;
-					
+
 					HELD = intersects[0].object.dad
 					makeGrid(HELD.height())
-					
+
 					intersects = raycaster.intersectObject( Grid )
 					selectedPoint = intersects[ 0 ].point;
-					
+
 					document.addEventListener( 'mousemove', onMouseMoveDrag, false );
 					document.addEventListener( 'mouseup', onMouseUpDrag, false );
 				}
 			}else if(CALL=="v_move"){
 				var intersects = raycaster.intersectObjects( OBJECTS )
-				
+
 				if(intersects.length>0){
 					selectedPoint = intersects[ 0 ].point;
-					
+
 					HELD = intersects[0].object.dad
 					Pole.position.set(HELD.position.x,0,HELD.position.z);
-					
+
 					intersects = raycaster.intersectObject( Pole )
 					selectedPoint = intersects[ 0 ].point;
-					
+
 					document.addEventListener( 'mousemove', onMouseMoveDrag, false );
 					document.addEventListener( 'mouseup', onMouseUpDrag, false );
 				}
 			}else{
 				makeGrid(FOCUS.elevation)
 				var intersects = raycaster.intersectObjects( [Grid] )
-				
+
 				if(intersects.length>0){
 					selectedPoint = intersects[ 0 ].point;
 					console.log(selectedPoint)
 					FOCUS[CALL](selectedPoint,PROTO)
-					
+
 				}
 				makeGrid(0)
 			}
@@ -205,72 +205,72 @@ THREE.HamrControls = function ( camera ) {
 			}
 		}
 	}
-	
+
 	function onMouseMoveDrag( event ) {
 		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
 		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
-		
+
 		raycaster.setFromCamera( mouse, camera );
 		if(CALL=="h_move"){
 			var intersects = raycaster.intersectObject( Grid );
-			
+
 			if(intersects.length>0){
 				HELD.move(new THREE.Vector3(intersects[0].point.x-selectedPoint.x, 0, intersects[0].point.z-selectedPoint.z));
-				
+
 				selectedPoint = intersects[0].point;
 			}
 		}else{
 			var intersects = raycaster.intersectObject( Pole );
-			
+
 			if(intersects.length>0){
 				HELD.move(new THREE.Vector3(0, intersects[0].point.y-selectedPoint.y, 0));
-				
+
 				selectedPoint = intersects[0].point;
 			}
 		}
 	}
-	
+
 	function onMouseUpDrag(  event  ) {
 		document.removeEventListener( 'mousemove', onMouseMoveDrag, false );
 		document.removeEventListener( 'mouseup', onMouseUpDrag, false );
-		
+
 		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
 		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
-		
+
 		raycaster.setFromCamera( mouse, camera );
 		if(CALL=="h_move"){
 			var intersects = raycaster.intersectObject( Grid );
 			if(intersects.length>0){
-				
+
 				while(HELD.feature){
 					HELD = HELD.dad
 				}
-				
+
 				HELD.snap()
 				HELD.choose()
-				
+
 				WORLD.update_Display()
 			}
-			
+
 			makeGrid(0)
 		}else{
 			var intersects = raycaster.intersectObject( Pole );
 			if(intersects.length>0){
-				
+
 				while(HELD.feature){
 					HELD = HELD.dad
 				}
-				
+
 				HELD.snap()
 				HELD.choose()
-				
+
 				WORLD.update_Display()
 			}
-			
+
 			Pole.position.set(0,0,0);
 		}
 	}
-	
+
 	function onMouseWheel( event ) {
 		var delta = 0;
 
@@ -289,7 +289,7 @@ THREE.HamrControls = function ( camera ) {
 		}
 		var relative_velocity = new THREE.Vector3(0,0,delta*-50)
 		relative_velocity.applyEuler( pitchObject.rotation )
-		
+
 		yawObject.translateX( relative_velocity.x);
 		yawObject.translateY( relative_velocity.y);
 		yawObject.translateZ( relative_velocity.z);
