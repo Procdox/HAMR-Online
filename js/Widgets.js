@@ -5,13 +5,15 @@ function SnapToGrid(v){
 	return v;
 }
 
-var POINT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.4,.4,.4)});
-var SEL_POINT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.7,.7,.7)});
+var DEF_POINT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.4,.4,.4)})
+var DEF_POINT_GEOMETRY = new THREE.CubeGeometry(16,16,16)
+var SEL_POINT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.9,.9,.9)})
+var SEL_POINT_GEOMETRY = new THREE.CubeGeometry(24,24,24)
 
-var BORDER_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.1,.4,.1)});
-var SEL_BORDER_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.1,.4,.4)});
+var DEF_BORDER_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.1,.4,.1)})
+var SEL_BORDER_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.1,.9,.9)})
 
-var HEIGHT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.3,.3,.5)});
+var HEIGHT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.3,.3,.5)})
 
 var BORDER_DELIM = ":"
 var POINT_DELIM = ","
@@ -19,11 +21,10 @@ var POINT_DELIM = ","
 
 var Point_Widget = function(position,dad){
 	this.feature = 1
-	this.material = POINT_MATERIAL.clone()
 	this.dad = dad
 	this.widgetType = 0
 	this.position = position
-	this.object = new THREE.Mesh(new THREE.CubeGeometry(16,16,16),this.material);
+	this.object = new THREE.Mesh(DEF_POINT_GEOMETRY, DEF_POINT_MATERIAL)
 	var childgeo = new THREE.Geometry()
 	childgeo.vertices.push(new THREE.Vector3(0,-this.position.y,0))
 	childgeo.vertices.push(new THREE.Vector3(0,0,0))
@@ -55,9 +56,13 @@ var Point_Widget = function(position,dad){
 		this.object.children[0].geometry.verticesNeedUpdate = true
 	}
 	this.display = function(){
+		this.object.material = DEF_POINT_MATERIAL
+		this.object.geometry = DEF_POINT_GEOMETRY
 		return [this.object]
 	}
 	this.edit = function(){
+		this.object.material = SEL_POINT_MATERIAL
+		this.object.geometry = SEL_POINT_GEOMETRY
 		return [this.object]
 	}
 	this.clone = function(){
@@ -93,7 +98,6 @@ function Square_Border(size,elevation,dad){
 
 var Border_Widget = function(dad){
 	this.feature = 1
-	this.material = BORDER_MATERIAL.clone()
 	this.dad = dad
 	this.widgetType = 1
 	this.vertices = [];
@@ -180,15 +184,15 @@ var Border_Widget = function(dad){
 	}
 	this.update = function(){
 		var geometry = new THREE.Geometry()
-		var vMat =  this.material.clone()
-		var hsl = vMat.color.getHSL()
-		//vMat.color.setHSL(hsl.h,hsl.s,hsl.l-.3)
+
 		for(var ii=0;ii<this.vertices.length;ii++){
-			this.vertices[ii].object.material.color.setHSL(hsl.h,hsl.s,hsl.l-.3)
+			this.vertices[ii].display()
 			geometry.vertices.push(this.vertices[ii].position)
 		}
 		geometry.vertices.push(this.vertices[0].position)
-		this.object = new THREE.Line(geometry,this.material)
+
+		this.object = new THREE.Line(geometry,DEF_BORDER_MATERIAL)
+
 		this.object.dad = this
 	}
 	this.display = function(){
@@ -197,9 +201,13 @@ var Border_Widget = function(dad){
 	}
 	this.edit = function(){
 		var objects = []
+
 		for(var ii=0;ii<this.vertices.length;ii++){
-			objects = objects.concat(this.vertices[ii].display())
+			objects = objects.concat(this.vertices[ii].edit())
 		}
+
+		this.object.material = SEL_BORDER_MATERIAL
+
 		return objects
 	}
 	this.flatten = function(){
@@ -344,15 +352,15 @@ var Plane_Widget = function(dad){
 	}
 	this.update = function(){
 		var geometry = new THREE.Geometry()
-		var vMat =  this.material.clone()
-		var hsl = vMat.color.getHSL()
-		//vMat.color.setHSL(hsl.h,hsl.s,hsl.l-.3)
+
 		for(var ii=0;ii<this.vertices.length;ii++){
-			this.vertices[ii].object.material.color.setHSL(hsl.h,hsl.s,hsl.l-.3)
+			this.vertices[ii].display()
 			geometry.vertices.push(this.vertices[ii].position)
 		}
 		geometry.vertices.push(this.vertices[0].position)
-		this.object = new THREE.Line(geometry,this.material)
+
+		this.object = new THREE.Line(geometry, DEF_BORDER_MATERIAL)
+
 		this.object.dad = this
 	}
 	this.display = function(){
@@ -361,9 +369,13 @@ var Plane_Widget = function(dad){
 	}
 	this.edit = function(){
 		var objects = []
+
+		this.object.material = SEL_BORDER_MATERIAL
+
 		for(var ii=0;ii<this.vertices.length;ii++){
-			objects = objects.concat(this.vertices[ii].display())
+			objects = objects.concat(this.vertices[ii].edit())
 		}
+
 		return objects
 	}
 	this.flatten = function(){
