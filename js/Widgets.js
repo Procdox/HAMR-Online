@@ -18,6 +18,121 @@ var HEIGHT_MATERIAL = new THREE.MeshBasicMaterial({color: new THREE.Color(.3,.3,
 var BORDER_DELIM = ":"
 var POINT_DELIM = ","
 
+/*class Widget_Base {
+	constructor(dad) {
+		this.objects = {}
+		this.feature = 1
+		this.dad = dad
+		this.position = new THREE.Vector3(0,0,0)
+	}
+	update(){
+
+	}
+	gen_Visible_Obj(){
+	}
+	list_Visible_Objs(){
+
+	}
+	gen_Control_Obj(){
+	}
+	list_Control_Objs(){
+	}
+	height(){
+
+	}
+	move(){
+
+	}
+	gen_Save_Text(){
+
+	}
+	parse_Load_Text(){
+
+	}
+}
+
+class Widget_Point extends Widget_Base {
+	constructor(dad){
+		super(dad)
+		this.widgetType = 0
+
+		var point = new THREE.Mesh(DEF_POINT_GEOMETRY, DEF_POINT_MATERIAL)
+		this.position = THREE.Vector3(0,0,0)
+
+
+		var childgeo = new THREE.Geometry()
+		childgeo.vertices.push(new THREE.Vector3(0,0,0))
+		childgeo.vertices.push(new THREE.Vector3(0,0,0))
+		point.add(new THREE.Line(childgeo,HEIGHT_MATERIAL))
+		point.position.copy(position)
+		point.dad = this
+
+		this.objects.push(point)
+	}
+	update(){
+		this.object.position.copy(position)
+		this.object.children[0].geometry.vertices[0].y = -this.position.y
+		this.object.children[0].geometry.verticesNeedUpdate = true
+	}
+	height(){
+		return this.objects[0].position.y
+	}
+	move(vector){
+		this.position.add(vector)
+
+		if(this.dad){
+			if(this.dad.feature){
+				this.dad.update()
+			}else{
+				this.dad.drag(vector)
+			}
+		}
+	}
+	snap(){
+		for(int ii=0; ii<this.objects.length;i++){
+			if(this.objects[i].feature){
+				this.objects[i].snap()
+			}else{
+
+			}
+		}
+	}
+	gen_Visible_Obj(){
+		this.objects[0].material = DEF_POINT_MATERIAL
+		this.objects[0].geometry = DEF_POINT_GEOMETRY
+		return this.objects
+	}
+	gen_Control_Obj(){
+		this.objects[0].material = SEL_POINT_MATERIAL
+		this.objects[0].geometry = SEL_POINT_GEOMETRY
+		return this.objects
+	}
+	gen_Save_Text(){
+		return ""+this.position.x+POINT_DELIM+this.position.y+POINT_DELIM+this.position.z+POINT_DELIM
+	}
+	parse_Load_Text(worldText){
+		var tuple = gatherThoughts(worldText,0,POINT_DELIM)
+		this.position.x = parseInt(tuple[0])
+		tuple = gatherThoughts(worldText,tuple[1],POINT_DELIM)
+		this.position.y = parseInt(tuple[0])
+		tuple = gatherThoughts(worldText,tuple[1],POINT_DELIM)
+		this.position.z = parseInt(tuple[0])
+		this.object.position.copy(position)
+		this.object.children[0].geometry.vertices[0].y = -this.object.position.y
+		this.object.children[0].geometry.verticesNeedUpdate = true
+	}
+}*/
+
+/*class Border_Widget extends Widget_Base {
+	constructor(dad){
+		super(dad)
+		this.widgetType = 1
+		this.
+	}
+	move(){
+
+	}
+}*/
 
 var Point_Widget = function(position,dad){
 	this.feature = 1

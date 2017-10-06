@@ -2,7 +2,7 @@ class Material{
 	constructor(){
 		this.editor = new THREE.MeshPhongMaterial({color: 0x6B6964})
 		this.export = "tools/toolsnodraw"
-}
+	}
 }
 
 var Mat_Blue_Floor = new Material()
