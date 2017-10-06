@@ -7,6 +7,8 @@ THREE.HamrControls = function ( camera ) {
 
 	var scope = this;
 
+	this.input_lock = false
+
 	camera.rotation.set( 0, 0, 0 );
 
 	var pitchObject = new THREE.Object3D();
@@ -149,59 +151,71 @@ THREE.HamrControls = function ( camera ) {
 	}
 
 	var onMouseDown = function( event ){
-		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
-		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
+		if(!this.input_lock){
+			this.input_lock = true;
 
-		raycaster.setFromCamera( mouse, camera );
-		if(event.button==0){
-			//drag/place event
-			if(CALL=="h_move"){
-				var intersects = raycaster.intersectObjects( OBJECTS )
+			mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
+			mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
 
-				if(intersects.length>0){
-					selectedPoint = intersects[ 0 ].point;
+			raycaster.setFromCamera( mouse, camera );
+			if(event.button==0){
+				//drag/place event
+				if(CALL=="h_move"){
+					var intersects = raycaster.intersectObjects( OBJECTS )
 
-					HELD = intersects[0].object.dad
-					makeGrid(HELD.height())
+					if(intersects.length>0){
+						selectedPoint = intersects[ 0 ].point;
 
-					intersects = raycaster.intersectObject( Grid )
-					selectedPoint = intersects[ 0 ].point;
+						HELD = intersects[0].object.dad
+						makeGrid(HELD.height())
 
-					document.addEventListener( 'mousemove', onMouseMoveDrag, false );
-					document.addEventListener( 'mouseup', onMouseUpDrag, false );
-				}
-			}else if(CALL=="v_move"){
-				var intersects = raycaster.intersectObjects( OBJECTS )
+						intersects = raycaster.intersectObject( Grid )
+						selectedPoint = intersects[ 0 ].point;
 
-				if(intersects.length>0){
-					selectedPoint = intersects[ 0 ].point;
+						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
+						document.addEventListener( 'mouseup', onMouseUpDrag, false );
+					}else{
+						this.input_lock = false
+					}
+				}else if(CALL=="v_move"){
+					var intersects = raycaster.intersectObjects( OBJECTS )
 
-					HELD = intersects[0].object.dad
-					Pole.position.set(HELD.position.x,0,HELD.position.z);
+					if(intersects.length>0){
+						selectedPoint = intersects[ 0 ].point;
 
-					intersects = raycaster.intersectObject( Pole )
-					selectedPoint = intersects[ 0 ].point;
+						HELD = intersects[0].object.dad
+						Pole.position.set(HELD.position.x,0,HELD.position.z);
 
-					document.addEventListener( 'mousemove', onMouseMoveDrag, false );
-					document.addEventListener( 'mouseup', onMouseUpDrag, false );
+						intersects = raycaster.intersectObject( Pole )
+						selectedPoint = intersects[ 0 ].point;
+
+						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
+						document.addEventListener( 'mouseup', onMouseUpDrag, false );
+					}else{
+						this.input_lock = false
+					}
+				}else{
+					makeGrid(FOCUS.elevation)
+					var intersects = raycaster.intersectObjects( [Grid] )
+
+					if(intersects.length>0){
+						selectedPoint = intersects[ 0 ].point;
+						console.log(selectedPoint)
+						FOCUS[CALL](selectedPoint,PROTO)
+
+					}
+					this.input_lock = false
+					makeGrid(0)
 				}
 			}else{
-				makeGrid(FOCUS.elevation)
-				var intersects = raycaster.intersectObjects( [Grid] )
-
-				if(intersects.length>0){
-					selectedPoint = intersects[ 0 ].point;
-					console.log(selectedPoint)
-					FOCUS[CALL](selectedPoint,PROTO)
-
+				this.input_lock = false;
+				if(event.button==1){
+					//select event
+					var intersects = raycaster.intersectObjects( SELECTABLES )
+					if(intersects.length>0){
+						intersects[0].object.dad.dad.choose()
+					}
 				}
-				makeGrid(0)
-			}
-		}else if(event.button==1){
-			//select event
-			var intersects = raycaster.intersectObjects( SELECTABLES )
-			if(intersects.length>0){
-				intersects[0].object.dad.dad.choose()
 			}
 		}
 	}
@@ -231,43 +245,47 @@ THREE.HamrControls = function ( camera ) {
 	}
 
 	function onMouseUpDrag(  event  ) {
-		document.removeEventListener( 'mousemove', onMouseMoveDrag, false );
-		document.removeEventListener( 'mouseup', onMouseUpDrag, false );
+		if(this.input_lock){
+			this.input_lock = false
 
-		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
-		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
+			document.removeEventListener( 'mousemove', onMouseMoveDrag, false );
+			document.removeEventListener( 'mouseup', onMouseUpDrag, false );
 
-		raycaster.setFromCamera( mouse, camera );
-		if(CALL=="h_move"){
-			var intersects = raycaster.intersectObject( Grid );
-			if(intersects.length>0){
+			mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
+			mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
 
-				while(HELD.feature){
-					HELD = HELD.dad
+			raycaster.setFromCamera( mouse, camera );
+			if(CALL=="h_move"){
+				var intersects = raycaster.intersectObject( Grid );
+				if(intersects.length>0){
+
+					while(HELD.feature){
+						HELD = HELD.dad
+					}
+
+					HELD.snap()
+					HELD.choose()
+
+					WORLD.update_Display()
 				}
 
-				HELD.snap()
-				HELD.choose()
+				makeGrid(0)
+			}else{
+				var intersects = raycaster.intersectObject( Pole );
+				if(intersects.length>0){
 
-				WORLD.update_Display()
-			}
+					while(HELD.feature){
+						HELD = HELD.dad
+					}
 
-			makeGrid(0)
-		}else{
-			var intersects = raycaster.intersectObject( Pole );
-			if(intersects.length>0){
+					HELD.snap()
+					HELD.choose()
 
-				while(HELD.feature){
-					HELD = HELD.dad
+					WORLD.update_Display()
 				}
 
-				HELD.snap()
-				HELD.choose()
-
-				WORLD.update_Display()
+				Pole.position.set(0,0,0);
 			}
-
-			Pole.position.set(0,0,0);
 		}
 	}
 
