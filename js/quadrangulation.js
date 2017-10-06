@@ -83,6 +83,18 @@ class HALF_Face {
   constructor(link){
     this.edge = link
   }
+  DebugCheck(){
+    var focus = this.edge
+
+    do{
+      console.assert(typeof(focus) !== 'undefined', 'unedefined edge!')
+      console.assert(typeof(focus.pair_edge) !== 'undefined', 'unedefined pair edge!')
+      console.assert(typeof(focus.point) !== 'undefined', 'unedefined point!')
+      console.assert(focus.left_face == this, 'incorrectly assigned face!')
+
+      focus = focus.next_edge
+    }while(focus && focus != this.edge)
+  }
   VerifyEdges(){
     var focus = this.edge
 
@@ -249,6 +261,58 @@ class HALF_Face {
     return validate_Shape(this.ListPoints())
   }
   ValidateSubTri(a,b,c){
+    //takes in a position array and an index triple
+  	//outputs if position triple the index triple points to is a valid TRI
+    var Right = this.EdgeAt(a).point.point
+    var Root = this.EdgeAt(b).point.point
+    var Left = this.EdgeAt(c).point.point
+
+  	var A = Right.clone().sub(Root)
+  	var B = Left.clone().sub(Root)
+  	var C = new THREE.Vector3()
+
+  	var dot00 = A.dot(A)
+  	var dot01 = A.dot(B)
+  	var dot11 = B.dot(B)
+
+
+  	var ox = A.x
+  	A.x = -A.z
+  	A.z = ox
+
+  	if(A.dot(B)<0)
+    {
+      return false
+    } //triangle has invalid wrapping
+
+  	A.z = -A.x
+  	A.x = ox
+
+    function is_internal(test){
+      if(test.point.distanceTo(Right) == 0){return false}
+  		if(test.point.distanceTo(Root) == 0){return false}
+  		if(test.point.distanceTo(Left) == 0){return false}
+  		var C = test.point.clone().sub(Root)
+
+  		var dot02 = A.dot(C)
+  		var dot12 = B.dot(C)
+
+  		// Compute barycentric coordinates
+  		var invDenom = 1 / (dot00 * dot11 - dot01 * dot01)
+  		var u = (dot11 * dot02 - dot01 * dot12) * invDenom
+  		var v = (dot00 * dot12 - dot01 * dot02) * invDenom
+  		// Check if point is in triangle
+  		if(((u >= 0) && (v >= 0) && (u + v < 1))){
+  			return true
+  		}
+      return false
+    }
+
+    if(this.FindPoint(is_internal))
+    {
+      return false
+    }
+  	return true
   }
 }
 
@@ -261,7 +325,7 @@ class HALF_Edge {
   }
   InsertAfter(edge){
     //given an edge matched with a pair_edge
-    edge.point = this.point
+    edge.point = this.next_edge.point
 
     edge.pair_edge.next_edge = this.next_edge
     this.next_edge = edge
@@ -302,7 +366,7 @@ function HALFify(polygon){
   return inner
 }
 
-function CutQuadEar(focus){
+/*function CutQuadEar(focus){
   if((validate([x0,x1,x2],border)&&validate([x0,x2,x3],border)) ||
     (validate([x0,x1,x3],border)&&validate([x1,x2,x3],border))){
 
@@ -317,7 +381,7 @@ function CutQuadEar(focus){
     found = true
     break
   }
-}
+}*/
 
 function quadra(border){
   //given a vertex list as a border
@@ -337,26 +401,24 @@ function quadra(border){
     // [op1] :
     // find an ear st x-1 to x+2 can be cut along
     //remove such quad
-    var current_border = focus_face.ListPointsRaw()
-    current_border.reverse()
-
     var found = false;
-    for(var ii = 0; ii < current_border.length; ii++){
-      var x0 = ii
-      var x1 = (ii+1) % current_border.length
-      var x2 = (ii+2) % current_border.length
-      var x3 = (ii+3) % current_border.length
+    for(var ii = 0; ii < focus_face.Size(); ii++){
       //if 0-1-3 and 1-2-3  =or=  0-1-2 and 0-2-3
-      if((validate([x0,x1,x2],current_border)&&validate([x0,x2,x3],current_border)) ||
-        (validate([x0,x1,x3],current_border)&&validate([x1,x2,x3],current_border))){
+      if((focus_face.ValidateSubTri(ii+1,ii+2,ii+3) && focus_face.ValidateSubTri(ii+1,ii+3,ii+4)) ||
+        (focus_face.ValidateSubTri(ii+1,ii+2,ii+4) && focus_face.ValidateSubTri(ii+2,ii+3,ii+4))){
 
-        var a = focus_face.EdgeAt(x0)
+        console.log("Splitting Face")
+
+        var a = focus_face.EdgeAt(ii)
         var b = a.next_edge.next_edge.next_edge
 
         var next = focus_face.SplitFaceBetween(a,b)
+        focus_face.DebugCheck()
 
+        console.log("Switching Focus")
         quads.push(focus_face)
         focus_face = next
+        focus_face.DebugCheck()
 
         found = true
         break
@@ -368,33 +430,28 @@ function quadra(border){
     // [op2] :
     // find an ear and insert a steiner point w
     // st an adjacent ear could be removed by op1
-    for(var ii = 0; ii < current_border.length; ii++){
-      var x0 = ii
-      var x1 = (ii+1) % current_border.length
-      var x2 = (ii+2) % current_border.length
-      var x3 = (ii+3) % current_border.length
-      var x4 = (ii+4) % current_border.length
+    for(var ii = 0; ii < focus_face.Size(); ii++){
+      if(focus_face.ValidateSubTri(ii+1,ii+2,ii+3)
+        && focus_face.ValidateSubTri(ii+3,ii+4,ii+5)){
 
-      //either x-1 or x+1 is reflexive
-      //stick w in
-      //wedge(x+1) U wedge(x+3)
-      if(validate([x0,x1,x2], current_border) && validate([x2,x3,x4], current_border)){
-        var A = current_border[x2].clone()
-        var B = current_border[x2].clone()
-        A.sub(current_border[x1])
-        B.sub(current_border[x3])
+        console.log("Splitting face with w")
+
+        var A = focus_face.EdgeAt(ii+3).point.point.clone()
+        var B = focus_face.EdgeAt(ii+3).point.point.clone()
+        A.sub(focus_face.EdgeAt(ii+2).point.point)
+        B.sub(focus_face.EdgeAt(ii+4).point.point)
 
         var w = new THREE.Vector3(0,0,0)
         w.add(A.normalize()).add(B.normalize())
         w.normalize()
         w.multiplyScalar(32)
 
-        w.add(current_border[x2])
+        w.add(focus_face.EdgeAt(ii+3).point.point)
 
-        var W = new HALF_Point(W)
+        var W = new HALF_Point(w)
 
-        var left_for = focus_face.EdgeAt(x1)
-        var right_in = focus_face.EdgeAt(x3)
+        var left_for = focus_face.EdgeAt(ii)
+        var right_in = focus_face.EdgeAt(ii+2)
 
         var lop = new HALF_Edge()
         var rop = new HALF_Edge()
@@ -416,10 +473,18 @@ function quadra(border){
         left_for.InsertAfter(lop)
         right_in.InsertAfter(rlo)
 
+        focus_face.edge = rlo
         var next = new HALF_Face(rop)
 
+        focus_face.VerifyEdges()
+        next.VerifyEdges()
+
+        focus_face.DebugCheck()
+
+        console.log("Switching Focus")
         quads.push(focus_face)
         focus_face = next
+        focus_face.DebugCheck()
 
         found = true
         break

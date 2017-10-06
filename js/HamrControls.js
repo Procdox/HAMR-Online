@@ -162,13 +162,15 @@ THREE.HamrControls = function ( camera ) {
 					selectedPoint = intersects[ 0 ].point;
 
 					HELD = intersects[0].object.dad
-					makeGrid(HELD.height())
+					if(HELD){
+						makeGrid(HELD.height())
 
-					intersects = raycaster.intersectObject( Grid )
-					selectedPoint = intersects[ 0 ].point;
+						intersects = raycaster.intersectObject( Grid )
+						selectedPoint = intersects[ 0 ].point;
 
-					document.addEventListener( 'mousemove', onMouseMoveDrag, false );
-					document.addEventListener( 'mouseup', onMouseUpDrag, false );
+						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
+						document.addEventListener( 'mouseup', onMouseUpDrag, false );
+					}
 				}
 			}else if(CALL=="v_move"){
 				var intersects = raycaster.intersectObjects( OBJECTS )
@@ -177,13 +179,15 @@ THREE.HamrControls = function ( camera ) {
 					selectedPoint = intersects[ 0 ].point;
 
 					HELD = intersects[0].object.dad
-					Pole.position.set(HELD.position.x,0,HELD.position.z);
+					if(HELD){
+						Pole.position.set(HELD.position.x,0,HELD.position.z);
 
-					intersects = raycaster.intersectObject( Pole )
-					selectedPoint = intersects[ 0 ].point;
+						intersects = raycaster.intersectObject( Pole )
+						selectedPoint = intersects[ 0 ].point;
 
-					document.addEventListener( 'mousemove', onMouseMoveDrag, false );
-					document.addEventListener( 'mouseup', onMouseUpDrag, false );
+						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
+						document.addEventListener( 'mouseup', onMouseUpDrag, false );
+					}
 				}
 			}else{
 				makeGrid(FOCUS.elevation)
