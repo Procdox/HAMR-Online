@@ -1,5 +1,8 @@
 //ASSUME CCW winding
 
+var DEBUG_EDGE_ID = 0
+var DEBUG_FACE_ID = 0
+
 class HALF_Point {
   constructor(location){
     this.edge = 0
@@ -79,9 +82,34 @@ class HALF_Point {
   }
 }
 
+
+function IsFollowingConvex(ref){
+  var Right = ref.point.point
+  var Root = ref.next_edge.point.point
+  var Left = ref.next_edge.next_edge.point.point
+
+  var A = Right.clone().sub(Root)
+  var B = Left.clone().sub(Root)
+
+  var dot00 = A.dot(A)
+  var dot01 = A.dot(B)
+  var dot11 = B.dot(B)
+
+
+  var ox = A.x
+  A.x = -A.z
+  A.z = ox
+
+  return A.dot(B) >= 0
+}
+function IsFollowingReflexive(ref){
+  return !IsFollowingConvex(ref)
+}
+
 class HALF_Face {
   constructor(link){
     this.edge = link
+    this.debug_id = DEBUG_FACE_ID++
   }
   DebugCheck(){
     var focus = this.edge
@@ -95,9 +123,43 @@ class HALF_Face {
       focus = focus.next_edge
     }while(focus && focus != this.edge)
   }
+  EdgeBefore(a){
+    var focus = this.edge
+
+    do{
+      if(focus.next_edge == a)
+      {
+        return focus
+      }
+      focus = focus.next_edge
+    }while(focus != this.edge)
+
+    return 0
+  }
   VerifyEdges(){
     var focus = this.edge
 
+    //remove any internal edges (possibly created by merges)
+    do{
+      if(focus.next_edge == focus.pair_edge){
+
+        var last = this.EdgeBefore(focus)
+        focus.pair_edge.point.edge = 0
+        focus.pair_edge.point = 0
+        focus.point.edge = focus.pair_edge.next_edge
+        last.next_edge = focus.pair_edge.next_edge
+
+        focus.pair_edge.pair_edge = 0
+        focus.pair_edge = 0
+
+        focus = last
+        this.edge = last
+      }
+
+      focus = focus.next_edge
+    }while(focus != this.edge)
+
+    //set all faces to point at meeee
     do{
       focus.left_face = this
 
@@ -217,24 +279,22 @@ class HALF_Face {
     //delete edge and its pair after sewing
     var op = a.pair_edge.left_face
 
-    var compLocal = function(focus){
-      return (focus.next_edge == a)
-    }
-    var compOp = function(focus){
-      return (focus.next_edge == a.pair_edge)
-    }
+    var local_last = this.EdgeBefore(a)
+    var op_last = op.EdgeBefore(a.pair_edge)
 
-    var local_last = this.FindEdge(compLocal)
-    var op_last = op.FindEdge(compOp)
-
-    a.point.edge = a.pair_edge.next_edge
     local_last.next_edge = a.pair_edge.next_edge
-
-    a.pair_edge.point.edge = a.next_edge
     op_last.next_edge = a.next_edge
 
-    VerifyEdges()
+    //remove all possible references to the deleted edges
+    a.point.edge = a.pair_edge.next_edge
+    a.pair_edge.point.edge = a.next_edge
+    a.pair_edge.pair_edge = 0
+    a.pair_edge = 0
+
+    this.VerifyEdges()
+
     this.edge = a.next_edge
+
     return op
   }
   FromEdge(a){
@@ -258,7 +318,7 @@ class HALF_Face {
     return focus
   }
   IsConvex(){
-    return validate_Shape(this.ListPoints())
+    return (this.FindEdge(IsFollowingReflexive)==0)
   }
   ValidateSubTri(a,b,c){
     //takes in a position array and an index triple
@@ -314,14 +374,384 @@ class HALF_Face {
     }
   	return true
   }
+  IsFollowingIndexConvex(a){
+    var ref = this.EdgeAt(a)
+    return IsFollowingConvex(ref)
+  }
+}
+
+//assumes faces are all point linked quads, meaning:
+//quads share 1 edge, merging will form a hexagon (solve-able)
+//quads share 2 edges, and at least 1 quad is convex
+//  merging will form a quad, either convex or not
+function quad_merge(target){
+  var neighbors = target.ListEdges()
+
+  var last = neighbors[0]
+  var count = 1
+
+  var neighbors_set = []
+  var neighbors_count = []
+
+  for(var ii=1;ii<neighbors.length;ii++){
+    if(neighbors[ii].pair_edge.left_face == last.pair_edge.left_face){
+      count++
+    }else{
+      neighbors_set.push(last)
+      neighbors_count.push(count)
+
+      last = neighbors[ii]
+      count = 1
+    }
+  }
+  neighbors_set.push(last)
+  neighbors_count.push(count)
+
+  for(var ii=0;ii<neighbors_set.length;ii++){
+    if(neighbors_count[ii]>1 && !neighbors[ii].pair_edge.left_face.BOUNDARY){
+      return target.MergeAcrossEdge(neighbors_set[ii])
+    }
+  }
+}
+
+function Edge_Setup(){
+  var lead = new HALF_Edge()
+  var lead_pair = new HALF_Edge()
+
+  lead.pair_edge = lead_pair
+  lead_pair.pair_edge = lead
+
+  lead.next_edge = lead_pair
+  lead_pair.next_edge = lead
+
+  return lead
+}
+
+function Steiner_Setup(point,tail_count){
+  //returns a list of the in-going edges towards the steiner point
+  var result = {}
+  result.steiner = new HALF_Point(point)
+  result.tails = []
+
+  var lead = Edge_Setup()
+  lead.point = result.steiner
+
+  result.tails.push(lead)
+
+  for(var ii=1;ii<tail_count;ii++){
+    var next = Edge_Setup()
+    result.tails[result.tails.length-1].pair_edge.InsertAfter(next)
+    result.tails.push(next)
+  }
+
+  return result
+}
+
+//assumes faces are all point linked quads with max merging, meaning
+//no 2 quads share more than a single edge
+
+var quad_2_pattern = [1,0,0,1,0,0]
+var quad_3_pattern = [1,0,1,0,1,0]
+var quad_4_pattern = [1,1,0,1,1,0]
+var quad_5_pattern = [1,1,1,0,0,0]
+
+
+function Apply_3_Pattern(A, target){
+  var B = A.next_edge.next_edge
+  var C = B.next_edge.next_edge
+
+
+  var w = new THREE.Vector3()
+  w.add(A.point.point)
+  w.add(B.point.point)
+  w.add(C.point.point)
+  w.divideScalar(3)
+
+  var steiner_stuff = Steiner_Setup(w, 3)
+
+
+  A.InsertAfter(steiner_stuff.tails[0].pair_edge)
+  B.InsertAfter(steiner_stuff.tails[1].pair_edge)
+  C.InsertAfter(steiner_stuff.tails[2].pair_edge)
+
+  target.edge = steiner_stuff.tails[0]
+  var face_a = new HALF_Face(steiner_stuff.tails[1])
+  var face_b = new HALF_Face(steiner_stuff.tails[2])
+
+  target.VerifyEdges()
+  face_a.VerifyEdges()
+  face_b.VerifyEdges()
+
+  return [target, face_a, face_b]
+}
+function Apply_4_Pattern(A, target){
+  var B = A.next_edge
+  var C = B.next_edge
+  var D = C.next_edge
+
+  var w_top = new THREE.Vector3()
+  var w_bottom = new THREE.Vector3()
+
+  var steiner_stuff_top = Steiner_Setup(w_top, 3)
+  var steiner_stuff_bottom = Steiner_Setup(w_bottom, 2)
+
+  //external
+  A.InsertAfter(steiner_stuff_bottom.tails[0].pair_edge)
+  D.InsertAfter(steiner_stuff_bottom.tails[1].pair_edge)
+  B.InsertAfter(steiner_stuff_top.tails[0].pair_edge)
+  C.InsertAfter(steiner_stuff_top.tails[2].pair_edge)
+
+  //internal
+  steiner_stuff_bottom.tails[1].pair_edge.InsertAfter(
+    steiner_stuff_top.tails[1].pair_edge)
+
+  target.edge = steiner_stuff_bottom.tails[0]
+  var face_a = new HALF_Face(steiner_stuff_bottom.tails[1])
+  var face_b = new HALF_Face(steiner_stuff_top.tails[0])
+  var face_c = new HALF_Face(steiner_stuff_top.tails[2])
+
+  target.VerifyEdges()
+  face_a.VerifyEdges()
+  face_b.VerifyEdges()
+  face_c.VerifyEdges()
+
+  return [target, face_a, face_b, face_c]
+}
+function Apply_5_Pattern(A, target){
+  var B = A.next_edge
+  var C = B.next_edge
+  var D = C.next_edge
+  var E = D.next_edge
+  var F = E.next_edge
+
+  var w_mid = new THREE.Vector3()
+  w_mid.add(B.point.point)
+  w_mid.add(C.point.point)
+  w_mid.add(D.point.point)
+  w_mid.divideScalar(3)
+
+  var w_left = new THREE.Vector3()
+  w_left.add(w_mid)
+  w_left.add(D.point.point)
+  w_left.add(F.point.point)
+  w_left.divideScalar(3)
+
+  var w_right = new THREE.Vector3()
+  w_right.add(w_mid)
+  w_right.add(B.point.point)
+  w_right.add(F.point.point)
+  w_right.divideScalar(3)
+
+  var steiner_stuff_left = Steiner_Setup(w_left, 2)
+  var steiner_stuff_mid = Steiner_Setup(w_mid, 3)
+  var steiner_stuff_right = Steiner_Setup(w_right, 2)
+
+  //top
+  A.InsertAfter(steiner_stuff_right.tails[0].pair_edge)
+  B.InsertAfter(steiner_stuff_mid.tails[0].pair_edge)
+  C.InsertAfter(steiner_stuff_left.tails[0].pair_edge)
+
+  //internal
+  steiner_stuff_right.tails[1].pair_edge.InsertAfter(
+    steiner_stuff_mid.tails[1].pair_edge)
+  steiner_stuff_left.tails[0].pair_edge.InsertAfter(
+    steiner_stuff_mid.tails[2].pair_edge)
+
+  //bottom
+  E.InsertAfter(steiner_stuff_left.tails[1].pair_edge)
+  steiner_stuff_left.tails[1].InsertAfter(
+    steiner_stuff_right.tails[1].pair_edge)
+
+  target.edge = steiner_stuff_mid.tails[0]
+  var face_a = new HALF_Face(steiner_stuff_mid.tails[1])
+  var face_b = new HALF_Face(steiner_stuff_mid.tails[2])
+  var face_c = new HALF_Face(steiner_stuff_left.tails[0])
+  var face_d = new HALF_Face(steiner_stuff_right.tails[1])
+
+  target.VerifyEdges()
+  face_a.VerifyEdges()
+  face_b.VerifyEdges()
+  face_c.VerifyEdges()
+  face_d.VerifyEdges()
+
+  return [target, face_a, face_b, face_c, face_d]
+}
+
+function hex_fix(set){
+  var result = []
+
+  function convex_on(test, set){
+    if(test.pair_edge.left_face.BOUNDARY){return false}
+    return !test.pair_edge.left_face.IsConvex()
+  }
+
+  function non_boundary(test){
+    return !(test.pair_edge.left_face.BOUNDARY)
+  }
+
+  while(set.length>0){
+    var target = set.pop()
+
+    if(target.IsConvex()||target.BOUNDARY){
+      result.push(target)
+      continue
+    }
+    //find a nonconvex neighbor
+    var pick = target.FindEdge(convex_on)
+
+    //if none pick a convex neighbor
+    if(pick==0){
+      pick = target.FindEdge(non_boundary)
+    }
+
+    console.assert(pick!=0, "non-Convex shape had no non-boundary neighbors!")
+    if(pick==0){
+      result.push(target) //UH OH
+      continue
+    }
+
+    var index = set.indexOf(pick.pair_edge.left_face)
+    if(index > -1){
+      set.splice(index,1)
+    }else{
+      index = result.indexOf(pick.pair_edge.left_face)
+      if(index > -1){
+        result.splice(index,1)
+      }else{
+        console.assert(1==0, "Neighbor does not exist")
+      }
+    }
+
+
+    target.MergeAcrossEdge(pick)
+
+    //now we have to fix the resultant hexagon...
+    //document reflexive edges
+
+    var edges = target.ListEdges()
+    var convex = []
+    for(var ii=0;ii<edges.length;ii++){
+      convex.push(IsFollowingReflexive(edges[ii]))
+    }
+
+    //rotate until a patten fits
+    var valid = true
+    for(var ii=0;ii<6;ii++){
+      if(convex[0]&&!convex[5])
+      {
+        valid = true
+        for(var jj=1;jj<5;jj++){
+          if(convex[jj]&&!quad_2_pattern[jj]){
+            valid = false
+            break
+          }
+        }
+        if(valid){
+          result = result.concat([target,
+            target.SplitFaceBetween(edges[0],edges[3])])
+
+          break
+        }
+      }
+      convex.push(convex.splice(0,1)[0])
+      edges.push(edges.splice(0,1)[0])
+    }
+    if(valid){continue}
+
+    for(var ii=0;ii<6;ii++){
+      if(convex[0]&&!convex[5])
+      {
+        valid = true
+        for(var jj=1;jj<5;jj++){
+          if(convex[jj]&&!quad_3_pattern[jj]){
+            valid = false
+            break
+          }
+        }
+        if(valid){
+          var w = new THREE.Vector3()
+          w.add(edges[1].point.point)
+          w.add(edges[3].point.point)
+          w.add(edges[5].point.point)
+          w.divideScalar(3)
+
+          //if mid is outside shape, use pattern 5
+          if(withinTri(w,[edges[0].point.point,edges[1].point.point,edges[2].point.point])||
+            withinTri(w,[edges[3].point.point,edges[4].point.point,edges[5].point.point])){
+            result = result.concat(Apply_5_Pattern(edges[2], target))
+          }else if(withinTri(w,[edges[2].point.point,edges[3].point.point,edges[4].point.point])||
+            withinTri(w,[edges[5].point.point,edges[0].point.point,edges[1].point.point])){
+            result = result.concat(Apply_5_Pattern(edges[4], target))
+          }else if(withinTri(w,[edges[4].point.point,edges[5].point.point,edges[0].point.point])||
+            withinTri(w,[edges[1].point.point,edges[2].point.point,edges[3].point.point])){
+            result = result.concat(Apply_5_Pattern(edges[0], target))
+          }else{
+            result = result.concat(Apply_3_Pattern(edges[0], target))
+          }
+
+          break
+        }
+      }
+      convex.push(convex.splice(0,1)[0])
+      edges.push(edges.splice(0,1)[0])
+    }
+    if(valid){continue}
+
+    for(var ii=0;ii<6;ii++){
+      if(convex[0]&&!convex[5])
+      {
+        valid = true
+        for(var jj=1;jj<5;jj++){
+          if(convex[jj]&&!quad_4_pattern[jj]){
+            valid = false
+            break
+          }
+        }
+        if(valid){
+          result = result.concat(Apply_4_Pattern(edge[0], target))
+
+          break
+        }
+      }
+      convex.push(convex.splice(0,1)[0])
+      edges.push(edges.splice(0,1)[0])
+    }
+    if(valid){continue}
+
+    for(var ii=0;ii<6;ii++){
+      if(convex[0]&&!convex[5])
+      {
+        valid = true
+        for(var jj=1;jj<5;jj++){
+          if(convex[jj]&&!quad_5_pattern[jj]){
+            valid = false
+            break
+          }
+        }
+        if(valid){
+          result = result.concat(Apply_5_Pattern(edge[0], target))
+
+          break
+        }
+      }
+      convex.push(convex.splice(0,1)[0])
+      edges.push(edges.splice(0,1)[0])
+    }
+    if(valid){continue}
+
+    console.assert(1==0, "failed to find a pattern for splitting the hex!")
+
+  }
+  return result
 }
 
 class HALF_Edge {
-  constrctor(){
+  constructor(){
     this.next_edge = 0
     this.pair_edge = 0
     this.point = 0
     this.left_face = 0
+    this.debug_id = DEBUG_EDGE_ID++
   }
   InsertAfter(edge){
     //given an edge matched with a pair_edge
@@ -361,6 +791,7 @@ function HALFify(polygon){
   var inner = new HALF_Face(edges[1])
 
   outer.VerifyEdges()
+  outer.BOUNDARY = true
   inner.VerifyEdges()
 
   return inner
@@ -494,7 +925,18 @@ function quadra(border){
   }
   quads.push(focus_face)
 
-  //
+  for(var ii=0;ii<quads.length;ii++){
+    var op = quad_merge(quads[ii])
+    var index = quads.indexOf(op)
+    if(index>-1){
+      quads.splice(index,1)
+      if(index<ii){
+        ii--
+      }
+    }
+  }
+
+  var final = hex_fix(quads)
 
   //we are left with a convex insensitive quadrangulation
   //merge nonconvex quads with convex quads resulting in convex quads
@@ -502,8 +944,8 @@ function quadra(border){
   //merge nonconvex quads with convex quads resulting in hexagons
   //merge nonconvex quads with nonconvex quads resulting in hexagons
   var borders = []
-  for(var ii=0;ii<quads.length;ii++){
-    borders.push(quads[ii].ListPointsRaw())
+  for(var ii=0;ii<final.length;ii++){
+    borders.push(final[ii].ListPointsRaw())
   }
 
 
