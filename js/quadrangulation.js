@@ -378,6 +378,14 @@ class HALF_Face {
     var ref = this.EdgeAt(a)
     return IsFollowingConvex(ref)
   }
+  UpdateConvexity(){
+    var focus = this.edge
+
+    do{
+      focus.next_edge.convex = IsFollowingConvex(focus)
+      focus = focus.next_edge
+    }while(focus != this.edge)
+  }
 }
 
 //assumes faces are all point linked quads, meaning:
@@ -450,11 +458,554 @@ function Steiner_Setup(point,tail_count){
 //assumes faces are all point linked quads with max merging, meaning
 //no 2 quads share more than a single edge
 
+//needed tools
+
+function FollowingSees(polygon, pred_a, pred_b){
+  //is difference vector within eachs internal angle (within theta of the normal)
+
+  if(!InFollowingAngle(pred_a, pred_b)||!InFollowingAngle(pred_b, pred_a)){
+    return false
+  }
+
+  //create stunted sgment
+  var offset = pred_a.next_edge.point.point.clone()
+    .sub(pred_b.next_edge.point.point).normalize()
+
+  var A = pred_a.next_edge.point.point.clone()
+    .sub(offset)
+  var B = pred_b.next_edge.point.point.clone()
+    .add(offset)
+
+  function test_Interset(target){
+    return find_Line_Intersection(target.point.point,
+      target.next_edge.point.point, A, B)
+  }
+
+  return (polygon.FindEdge(test_Interset) == 0)
+
+}
+
+function InFollowingAngle(w,p){
+  var offset = w.next_edge.point.point.clone()
+    .sub(p.next_edge.point.point).normalize()
+
+  var left = p.next_edge.point.point.clone()
+    .sub(p.point.point).normalize()
+  var right = p.next_edge.point.point.clone()
+    .sub(p.next_edge.next_edge.point.point).normalize()
+
+  var n = left.clone().add(right).normalize()
+
+  if(IsFollowingConvex(p)){
+    n.multiplyScalar(-1)
+  }
+
+  var theta = Math.acos(n.dot(left))
+  var test = Math.acos(n.dot(offset))
+
+  return test < theta
+}
+
+function InFollowingWedge(w,p){
+  var offset = w.next_edge.point.point.clone()
+    .sub(p.next_edge.point.point).normalize()
+
+  var left = p.next_edge.point.point.clone()
+    .sub(p.point.point).normalize()
+  var right = p.next_edge.point.point.clone()
+    .sub(p.next_edge.next_edge.point.point).normalize()
+
+  var n = left.clone().add(right).normalize()
+
+  if(IsFollowingConvex(p)){
+    n.multiplyScalar(-1)
+    left.multiplyScalar(-1)
+  }
+
+  var theta = Math.acos(n.dot(left))
+  var test = Math.acos(n.dot(offset))
+
+  return test < theta
+}
+
+/*
+
+this.reals = this.reals.concat(this.find_Intersections(vector_array))
+this.reals = this.reals.concat(vector_array)
+this.condense_Reals()
+
+var addition = vector_Array_To_Path(vector_array)
+var product = new ClipperLib.Paths();
+
+var cpr = new ClipperLib.Clipper();
+cpr.AddPaths(this.path, ClipperLib.PolyType.ptSubject, true);
+cpr.AddPaths(addition, ClipperLib.PolyType.ptClip, true);
+
+cpr.StrictlySimple = true;
+cpr.Execute(ClipperLib.ClipType.ctUnion, product, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+ClipperLib.Clipper.CleanPolygons(product)
+
+this.path = product
+
+*/
+
+function IterateClip(old_clip, intersect){
+  var next_clip = new ClipperLib.Paths();
+  var clip = new ClipperLib.Clipper();
+
+  clip.AddPaths(old_clip, ClipperLib.PolyType.ptSubject, true);
+  clip.AddPaths(intersect, ClipperLib.PolyType.ptClip, true);
+
+  clip.StrictlySimple = true
+
+  clip.Execute(ClipperLib.ClipType.ctIntersection, next_clip,
+    ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+  ClipperLib.Clipper.CleanPolygons(next_clip)
+
+  return next_clip
+}
+
+function SetupClip(poly){
+  return vector_Array_To_Path(poly.ListPointsRaw())
+}
+
+function GenFollowingWedge(clip,p){
+
+  var center = p.next_edge.point.point
+
+  var left = center.clone()
+    .sub(p.point.point).normalize()
+  var right = center.clone()
+    .sub(p.next_edge.next_edge.point.point).normalize()
+
+  if(IsFollowingConvex(p)){
+    left.multiplyScalar(-1)
+    right.multiplyScalar(-1)
+  }
+
+
+  left.multiplyScalar(10000)
+  right.multiplyScalar(10000)
+
+  var path =[[{X:center.x,Y:center.z},
+    {X:center.x + left.x,Y:center.z + left.z},
+    {X:center.x + right.x,Y:center.z + right.z}]]
+
+  if(!ClipperLib.Clipper.Orientation(path[0])){
+  	ClipperLib.Clipper.ReversePaths(path)
+  }
+
+  //DEBUG_CURVES.push(path)
+  return IterateClip(clip, path)
+}
+
+function GenLeftPlane(clip,a,b){
+  var offset = b.point.point.clone().sub(a.point.point)
+  offset.normalize()
+  offset.multiplyScalar(10000)
+
+  var Near_A = {X:a.point.point.x + offset.x, Y:a.point.point.z + offset.z}
+  var Near_B = {X:b.point.point.x - offset.x, Y:b.point.point.z - offset.z}
+
+  var Far_A = {X:Near_A.X + offset.z, Y:Near_A.Y - offset.x}
+  var Far_B = {X:Near_B.X + offset.z, Y:Near_B.Y - offset.x}
+
+  var path = [[Near_A,Near_B,Far_B,Far_A]]
+
+  if(!ClipperLib.Clipper.Orientation(path[0])){
+  	ClipperLib.Clipper.ReversePaths(path)
+  }
+
+  DEBUG_CURVES.push(path)
+
+  return IterateClip(clip, path)
+}
+
+function GenTriangle(clip,a,b,c){
+  var A = {X:a.point.point.x,Y:a.point.point.z}
+  var B = {X:b.point.point.x,Y:b.point.point.z}
+  var C = {X:c.point.point.x,Y:c.point.point.z}
+
+  var path = [[A,B,C]]
+
+  if(!ClipperLib.Clipper.Orientation(path[0])){
+  	ClipperLib.Clipper.ReversePaths(path)
+  }
+
+  //DEBUG_CURVES.push(path)
+
+  return IterateClip(clip, path)
+}
+
+function GenKernel(clip, poly){
+  var kernel = SetupClip(poly)
+  var edges = poly.ListEdges()
+  for(var ii=0;ii<edges.length;ii++){
+    kernel = GenFollowingWedge(kernel, edges[ii])
+  }
+
+  DEBUG_CURVES.push(kernel)
+
+  return IterateClip(clip, kernel)
+}
+
+function PointFromClip(clip){
+  var midpoint = new THREE.Vector3(0,0,0)
+
+  for(var ii=0;ii<clip[0].length;ii++){
+    midpoint.x += clip[0][ii].X
+    midpoint.z += clip[0][ii].Y
+  }
+
+  midpoint.divideScalar(clip[0].length)
+
+  return midpoint
+}
+
+function case_0(poly){
+  console.log("case_0")
+  var hexagon = {}
+  hexagon.poly = poly
+  hexagon.ReflxiveCount = 0
+  hexagon.kernel = 0
+
+  function convexIterate(target){
+    if(!target.convex){
+      hexagon.ReflxiveCount++
+    }
+    return false
+  }
+
+  hexagon.poly.UpdateConvexity()
+
+  hexagon.poly.FindEdge(convexIterate)
+
+  if(hexagon.ReflxiveCount==1){
+    return case_1_1(hexagon)
+  }else if(hexagon.ReflxiveCount==2){
+    return case_2_1(hexagon)
+  }else{ // ==3
+    return case_3_1(hexagon)
+  }
+}
+
+var DEBUG_CURVES = []
+
+function DISPLAY_CURVES(){
+  var h = 32
+  for(var ii=0;ii<DEBUG_CURVES.length;ii++){
+    displayPath(DEBUG_CURVES[ii], h)
+    h+=4
+  }
+}
+
+//case functions
+function case_1_1(hexagon){
+  console.log("case_1_1")
+  //find a
+  function findReflexive(target){
+    return !target.next_edge.convex
+  }
+
+  // A is leading the reflexive
+  hexagon.A = hexagon.poly.FindEdge(findReflexive)
+  hexagon.B = hexagon.A.next_edge
+  hexagon.C = hexagon.B.next_edge
+  hexagon.D = hexagon.C.next_edge
+  hexagon.E = hexagon.D.next_edge
+  hexagon.F = hexagon.E.next_edge
+
+
+  if(InFollowingWedge(hexagon.D,hexagon.A)){
+    return [hexagon.poly, hexagon.poly.SplitFaceBetween(hexagon.A,hexagon.D)]
+  }else{
+    return case_1_2(hexagon)
+  }
+}
+
+function case_1_2(hexagon){
+  console.log("case_1_2")
+
+  if(FollowingSees(hexagon.poly,hexagon.C,hexagon.E)){
+    var clip = SetupClip(hexagon.poly)
+    clip = GenTriangle(clip,hexagon.B,hexagon.D,hexagon.F)
+    clip = GenKernel(clip, hexagon.poly)
+    var w = PointFromClip(clip)
+
+
+    var steiner_stuff = Steiner_Setup(w, 3)
+
+    hexagon.A.InsertAfter(steiner_stuff.tails[0].pair_edge)
+    hexagon.C.InsertAfter(steiner_stuff.tails[1].pair_edge)
+    hexagon.E.InsertAfter(steiner_stuff.tails[2].pair_edge)
+
+    hexagon.poly.edge = steiner_stuff.tails[0]
+    var face_a = new HALF_Face(steiner_stuff.tails[1])
+    var face_b = new HALF_Face(steiner_stuff.tails[2])
+
+    hexagon.poly.VerifyEdges()
+    face_a.VerifyEdges()
+    face_b.VerifyEdges()
+
+    return [hexagon.poly, face_a, face_b]
+  }else{
+    return case_1_3(hexagon)
+  }
+}
+
+function case_1_3(hexagon){
+  console.log("case_1_3")
+  //find half point between A and ( N(A) intersect CD )
+
+  var clip = SetupClip(hexagon.poly)
+  clip = GenFollowingWedge(clip,hexagon.A)
+  clip = GenFollowingWedge(clip,hexagon.C)
+  clip = GenLeftPlane(clip,hexagon.B,hexagon.D)
+
+  var w = PointFromClip(clip)
+
+  var steiner_stuff = Steiner_Setup(w, 2)
+  hexagon.A.InsertAfter(steiner_stuff.tails[0].pair_edge)
+  hexagon.C.InsertAfter(steiner_stuff.tails[1].pair_edge)
+
+  hexagon.poly.edge = steiner_stuff.tails[0]
+  var face_a = new HALF_Face(steiner_stuff.tails[1])
+
+  var r = case_0(face_a)
+  r.push(hexagon.poly)
+  return r
+}
+
+function case_2_1(hexagon){
+  function findReflexiveSep(target){
+    return (!target.next_edge.convex &&
+      !target.next_edge.next_edge.next_edge.convex)
+  }
+
+  hexagon.A = hexagon.poly.FindEdge(findReflexiveSep)
+  if(hexagon.A!=0){
+    hexagon.B = hexagon.A.next_edge
+    hexagon.C = hexagon.B.next_edge
+    hexagon.D = hexagon.C.next_edge
+    hexagon.E = hexagon.D.next_edge
+    hexagon.F = hexagon.E.next_edge
+    if(FollowingSees(hexagon.poly, hexagon.A,hexagon.E) &&
+      FollowingSees(hexagon.poly, hexagon.C,hexagon.E)){
+
+      var clip = SetupClip(hexagon.poly)
+      clip = GenTriangle(clip,hexagon.B,hexagon.D,hexagon.F)
+      clip = GenKernel(clip, hexagon.poly)
+      var w = PointFromClip(clip)
+
+
+      var steiner_stuff = Steiner_Setup(w, 3)
+
+      hexagon.A.InsertAfter(steiner_stuff.tails[0].pair_edge)
+      hexagon.C.InsertAfter(steiner_stuff.tails[1].pair_edge)
+      hexagon.E.InsertAfter(steiner_stuff.tails[2].pair_edge)
+
+      hexagon.poly.edge = steiner_stuff.tails[0]
+      var face_a = new HALF_Face(steiner_stuff.tails[1])
+      var face_b = new HALF_Face(steiner_stuff.tails[2])
+
+      hexagon.poly.VerifyEdges()
+      face_a.VerifyEdges()
+      face_b.VerifyEdges()
+
+      return [hexagon.poly, face_a, face_b]
+
+    }else{
+      var clip = SetupClip(hexagon.poly)
+      clip = GenFollowingWedge(clip,hexagon.A)
+      clip = GenFollowingWedge(clip,hexagon.C)
+      clip = GenLeftPlane(clip,hexagon.B,hexagon.D)
+
+      var w = PointFromClip(clip)
+
+      var steiner_stuff = Steiner_Setup(w, 2)
+      hexagon.A.InsertAfter(steiner_stuff.tails[0].pair_edge)
+      hexagon.C.InsertAfter(steiner_stuff.tails[1].pair_edge)
+
+      hexagon.poly.edge = steiner_stuff.tails[0]
+      var face_a = new HALF_Face(steiner_stuff.tails[1])
+
+      var r = case_0(face)
+      r.push(hexagon.poly)
+      return r
+    }
+  }else{
+    return case_2_2(hexagon)
+  }
+}
+
+function case_2_2(hexagon){
+  function findReflexiveConsecutive(target){
+    return (!target.next_edge.convex &&
+      !target.next_edge.next_edge.convex)
+  }
+
+
+  hexagon.A = hexagon.poly.FindEdge(findReflexiveConsecutive)
+  if(hexagon.A!=0){
+    hexagon.B = hexagon.A.next_edge
+    hexagon.C = hexagon.B.next_edge
+    hexagon.D = hexagon.C.next_edge
+    hexagon.E = hexagon.D.next_edge
+    hexagon.F = hexagon.E.next_edge
+
+    //cut b to d
+    //cut e to a
+    //get kernal
+    //merge back
+    var clip = SetupClip(hexagon.poly)
+
+    hexagon.poly.SplitFaceBetween(hexagon.D,hexagon.B)
+    hexagon.poly.SplitFaceBetween(hexagon.A,hexagon.E)
+
+    clip = GenKernel(clip, hexagon.poly)
+
+    hexagon.poly.MergeAcrossEdge(hexagon.B.next_edge)
+    hexagon.poly.MergeAcrossEdge(hexagon.E.next_edge)
+
+    clip = GenLeftPlane(clip,hexagon.B,hexagon.C)
+
+    var w = PointFromClip(clip)
+
+    var steiner_stuff = Steiner_Setup(w, 2)
+    hexagon.B.InsertAfter(steiner_stuff.tails[0].pair_edge)
+    hexagon.D.InsertAfter(steiner_stuff.tails[1].pair_edge)
+
+    hexagon.poly.edge = steiner_stuff.tails[0]
+    var face_a = new HALF_Face(steiner_stuff.tails[1])
+
+    var r = case_0(face_a)
+    r.push(hexagon.poly)
+    return r
+  }else{
+    return case_2_3(hexagon)
+  }
+}
+
+function case_2_3(hexagon){
+  function findReflexive(target){
+    return !target.next_edge.convex
+  }
+
+  hexagon.A = hexagon.poly.FindEdge(findReflexive)
+  hexagon.B = hexagon.A.next_edge
+  hexagon.C = hexagon.B.next_edge
+  hexagon.D = hexagon.C.next_edge
+  hexagon.E = hexagon.D.next_edge
+  hexagon.F = hexagon.E.next_edge
+
+  var other = hexagon.poly.SplitFaceBetween(hexagon.A,hexagon.D)
+
+  if(other.IsConvex()&&hexagon.poly.IsConvex()){
+    return [other,hexagon.poly]
+  }else{
+    //cut b to d
+    //cut e to a
+    //get kernal
+    //merge back
+    var clip = SetupClip(hexagon.poly)
+
+    hexagon.poly.SplitFaceBetween(hexagon.D,hexagon.B)
+    hexagon.poly.SplitFaceBetween(hexagon.A,hexagon.E)
+
+    clip = GenKernel(clip, hexagon.poly)
+
+    hexagon.poly.MergeAcrossEdge(hexagon.B.next_edge)
+    hexagon.poly.MergeAcrossEdge(hexagon.E.next_edge)
+
+    clip = GenLeftPlane(clip,hexagon.B,hexagon.C)
+
+    var w = PointFromClip(clip)
+
+    var steiner_stuff = Steiner_Setup(w, 2)
+    hexagon.B.InsertAfter(steiner_stuff.tails[0].pair_edge)
+    hexagon.D.InsertAfter(steiner_stuff.tails[1].pair_edge)
+
+    hexagon.poly.edge = steiner_stuff.tails[0]
+    var face_a = new HALF_Face(steiner_stuff.tails[1])
+
+    var r = case_0(face)
+    r.push(hexagon.poly)
+
+  }
+}
+
+function case_3_1(hexagon){
+  //if alternating
+  var hexagon.A = hexagon.poly.edge
+  hexagon.B = hexagon.A.next_edge
+  hexagon.C = hexagon.B.next_edge
+  hexagon.D = hexagon.C.next_edge
+  hexagon.E = hexagon.D.next_edge
+  hexagon.F = hexagon.E.next_edge
+
+  if((!hexagon.A.convex && !hexagon.C.convex !hexagon.E.convex) ||
+    (!hexagon.B.convex && !hexagon.D.convex !hexagon.F.convex)){
+
+    if(hexagon.A.convex){
+      hexagon.A = hexagon.B
+      hexagon.B = hexagon.C
+      hexagon.C = hexagon.D
+      hexagon.D = hexagon.E
+      hexagon.E = hexagon.F
+      hexagon.F = hexagon.F.next_edge
+    }
+
+    if(FollowingSees(hexagon.poly, hexagon.A, hexagon.C) &&
+      FollowingSees(hexagon.poly, hexagon.A, hexagon.E) &&
+      FollowingSees(hexagon.poly, hexagon.C, hexagon.E)){
+
+      var clip = SetupClip(hexagon.poly)
+      clip = GenTriangle(clip,hexagon.B,hexagon.D,hexagon.F)
+      clip = GenKernel(clip, hexagon.poly)
+      var w = PointFromClip(clip)
+
+
+      var steiner_stuff = Steiner_Setup(w, 3)
+
+      hexagon.A.InsertAfter(steiner_stuff.tails[0].pair_edge)
+      hexagon.C.InsertAfter(steiner_stuff.tails[1].pair_edge)
+      hexagon.E.InsertAfter(steiner_stuff.tails[2].pair_edge)
+
+      hexagon.poly.edge = steiner_stuff.tails[0]
+      var face_a = new HALF_Face(steiner_stuff.tails[1])
+      var face_b = new HALF_Face(steiner_stuff.tails[2])
+
+      hexagon.poly.VerifyEdges()
+      face_a.VerifyEdges()
+      face_b.VerifyEdges()
+
+      return [hexagon.poly, face_a, face_b]
+    }else{
+      //find which is convec
+
+    }
+  }else{
+    return case_3_2(hexagon)
+  }
+}
+
+function case_3_2(hexagon){
+
+
+}
+
+function case_3_3(hexagon){
+
+
+}
+
+
 var quad_2_pattern = [1,0,0,1,0,0]
 var quad_3_pattern = [1,0,1,0,1,0]
 var quad_4_pattern = [1,1,0,1,1,0]
 var quad_5_pattern = [1,1,1,0,0,0]
-
 
 function Apply_3_Pattern(A, target){
   var B = A.next_edge.next_edge
@@ -579,6 +1130,7 @@ function Apply_5_Pattern(A, target){
 
 function hex_fix(set){
   var result = []
+  DEBUG_CURVES = []
 
   function convex_on(test, set){
     if(test.pair_edge.left_face.BOUNDARY){return false}
@@ -625,121 +1177,7 @@ function hex_fix(set){
 
     target.MergeAcrossEdge(pick)
 
-    //now we have to fix the resultant hexagon...
-    //document reflexive edges
-
-    var edges = target.ListEdges()
-    var convex = []
-    for(var ii=0;ii<edges.length;ii++){
-      convex.push(IsFollowingReflexive(edges[ii]))
-    }
-
-    //rotate until a patten fits
-    var valid = true
-    for(var ii=0;ii<6;ii++){
-      if(convex[0]&&!convex[5])
-      {
-        valid = true
-        for(var jj=1;jj<5;jj++){
-          if(convex[jj]&&!quad_2_pattern[jj]){
-            valid = false
-            break
-          }
-        }
-        if(valid){
-          result = result.concat([target,
-            target.SplitFaceBetween(edges[0],edges[3])])
-
-          break
-        }
-      }
-      convex.push(convex.splice(0,1)[0])
-      edges.push(edges.splice(0,1)[0])
-    }
-    if(valid){continue}
-
-    for(var ii=0;ii<6;ii++){
-      if(convex[0]&&!convex[5])
-      {
-        valid = true
-        for(var jj=1;jj<5;jj++){
-          if(convex[jj]&&!quad_3_pattern[jj]){
-            valid = false
-            break
-          }
-        }
-        if(valid){
-          var w = new THREE.Vector3()
-          w.add(edges[1].point.point)
-          w.add(edges[3].point.point)
-          w.add(edges[5].point.point)
-          w.divideScalar(3)
-
-          //if mid is outside shape, use pattern 5
-          if(withinTri(w,[edges[0].point.point,edges[1].point.point,edges[2].point.point])||
-            withinTri(w,[edges[3].point.point,edges[4].point.point,edges[5].point.point])){
-            result = result.concat(Apply_5_Pattern(edges[2], target))
-          }else if(withinTri(w,[edges[2].point.point,edges[3].point.point,edges[4].point.point])||
-            withinTri(w,[edges[5].point.point,edges[0].point.point,edges[1].point.point])){
-            result = result.concat(Apply_5_Pattern(edges[4], target))
-          }else if(withinTri(w,[edges[4].point.point,edges[5].point.point,edges[0].point.point])||
-            withinTri(w,[edges[1].point.point,edges[2].point.point,edges[3].point.point])){
-            result = result.concat(Apply_5_Pattern(edges[0], target))
-          }else{
-            result = result.concat(Apply_3_Pattern(edges[0], target))
-          }
-
-          break
-        }
-      }
-      convex.push(convex.splice(0,1)[0])
-      edges.push(edges.splice(0,1)[0])
-    }
-    if(valid){continue}
-
-    for(var ii=0;ii<6;ii++){
-      if(convex[0]&&!convex[5])
-      {
-        valid = true
-        for(var jj=1;jj<5;jj++){
-          if(convex[jj]&&!quad_4_pattern[jj]){
-            valid = false
-            break
-          }
-        }
-        if(valid){
-          result = result.concat(Apply_4_Pattern(edge[0], target))
-
-          break
-        }
-      }
-      convex.push(convex.splice(0,1)[0])
-      edges.push(edges.splice(0,1)[0])
-    }
-    if(valid){continue}
-
-    for(var ii=0;ii<6;ii++){
-      if(convex[0]&&!convex[5])
-      {
-        valid = true
-        for(var jj=1;jj<5;jj++){
-          if(convex[jj]&&!quad_5_pattern[jj]){
-            valid = false
-            break
-          }
-        }
-        if(valid){
-          result = result.concat(Apply_5_Pattern(edge[0], target))
-
-          break
-        }
-      }
-      convex.push(convex.splice(0,1)[0])
-      edges.push(edges.splice(0,1)[0])
-    }
-    if(valid){continue}
-
-    console.assert(1==0, "failed to find a pattern for splitting the hex!")
+    result = result.concat(case_0(target))
 
   }
   return result
