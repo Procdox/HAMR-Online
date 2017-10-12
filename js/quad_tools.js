@@ -1,5 +1,7 @@
 //Tests
 
+var DEBUG_WEDGE = true
+
 function FollowingSees(polygon, pred_a, pred_b){
   //is difference vector within eachs internal angle (within theta of the normal)
 
@@ -104,18 +106,23 @@ function GenFollowingWedge(clip, p, debug=false){
   var right = p.next_edge.next_edge.point.point.clone()
     .sub(origin).normalize()
 
+  var n = left.clone().add(right).normalize()
+
   if(IsFollowingReflexive(p)){
     left.multiplyScalar(-1)
+    n.multiplyScalar(-1)
     right.multiplyScalar(-1)
   }
 
 
   left.multiplyScalar(10000)
+  n.multiplyScalar(10000)
   right.multiplyScalar(10000)
 
-  var path =[[{X:origin.x,Y:origin.z},
-    {X:origin.x + left.x,Y:origin.z + left.z},
-    {X:origin.x + right.x,Y:origin.z + right.z}]]
+  var path =[[{X:origin.x, Y:origin.z},
+    {X:origin.x + left.x, Y:origin.z + left.z},
+    {X:origin.x + n.x, Y:origin.z + n.z},
+    {X:origin.x + right.x, Y:origin.z + right.z}]]
 
   if(!ClipperLib.Clipper.Orientation(path[0])){
   	ClipperLib.Clipper.ReversePaths(path)
@@ -175,7 +182,7 @@ function GenKernel(clip, poly, debug=false){
   var kernel = SetupClip(poly)
   var edges = poly.ListEdges()
   for(var ii=0;ii<edges.length;ii++){
-    kernel = GenFollowingWedge(kernel, edges[ii])
+    kernel = GenFollowingWedge(kernel, edges[ii], DEBUG_WEDGE)
   }
 
   if(debug){

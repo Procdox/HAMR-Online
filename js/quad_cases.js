@@ -304,7 +304,7 @@ function case_3_1(hexagon){
   if((!hexagon.A.convex && !hexagon.C.convex && !hexagon.E.convex) ||
     (!hexagon.B.convex && !hexagon.D.convex && !hexagon.F.convex)){
 
-    if(hexagon.A.convex){
+    if(hexagon.B.convex){
       hexagon.A = hexagon.B
       hexagon.B = hexagon.C
       hexagon.C = hexagon.D
@@ -326,9 +326,9 @@ function case_3_1(hexagon){
 
       var steiner_stuff = Steiner_Setup(w, 3)
 
-      hexagon.F.InsertAfter(steiner_stuff.tails[0].pair_edge)
-      hexagon.B.InsertAfter(steiner_stuff.tails[1].pair_edge)
-      hexagon.D.InsertAfter(steiner_stuff.tails[2].pair_edge)
+      hexagon.A.InsertAfter(steiner_stuff.tails[0].pair_edge)
+      hexagon.C.InsertAfter(steiner_stuff.tails[1].pair_edge)
+      hexagon.E.InsertAfter(steiner_stuff.tails[2].pair_edge)
 
       hexagon.poly.edge = steiner_stuff.tails[0]
       var face_a = new HALF_Face(steiner_stuff.tails[1])
@@ -411,12 +411,12 @@ function case_3_2(hexagon){
     hexagon.E = hexagon.D.next_edge
     hexagon.F = hexagon.E.next_edge
 
-    if(!hexagon.D.convex){
+    if(!hexagon.E.convex){
       if(FollowingSees(hexagon.poly,hexagon.A,hexagon.E)){
         console.log("case_3_2_a_r")
         var clip = SetupClip(hexagon.poly)
-        clip = GenLeftPlane(clip,hexagon.A,hexagon.E)
-        clip = GenLeftPlane(clip,hexagon.D,hexagon.B)
+        clip = GenLeftPlane(clip,hexagon.F,hexagon.B, true)
+        clip = GenLeftPlane(clip,hexagon.C,hexagon.E, true)
         clip = GenKernel(clip,hexagon.poly)
 
         var w = PointFromClip(clip)
@@ -437,7 +437,7 @@ function case_3_2(hexagon){
       else{
         console.log("case_3_2_b_r")
         var clip = SetupClip(hexagon.poly)
-        clip = GenLeftPlane(clip,hexagon.D,hexagon.F)
+        clip = GenLeftPlane(clip,hexagon.E,hexagon.A, true)
         clip = GenFollowingWedge(clip,hexagon.D)
 
         var w = PointFromClip(clip)
@@ -460,8 +460,8 @@ function case_3_2(hexagon){
       if(FollowingSees(hexagon.poly,hexagon.B,hexagon.D)){
         console.log("case_3_2_a_l")
         var clip = SetupClip(hexagon.poly)
-        clip = GenLeftPlane(clip,hexagon.D,hexagon.B)
-        clip = GenLeftPlane(clip,hexagon.E,hexagon.A)
+        clip = GenLeftPlane(clip,hexagon.F,hexagon.B, true)
+        clip = GenLeftPlane(clip,hexagon.C,hexagon.E, true)
         clip = GenKernel(clip,hexagon.poly)
 
         var w = PointFromClip(clip)
@@ -482,7 +482,7 @@ function case_3_2(hexagon){
       else{
         console.log("case_3_2_b_l")
         var clip = SetupClip(hexagon.poly)
-        clip = GenLeftPlane(clip,hexagon.C,hexagon.E)
+        clip = GenLeftPlane(clip,hexagon.D,hexagon.F, true)
         clip = GenFollowingWedge(clip,hexagon.E)
 
         var w = PointFromClip(clip)
