@@ -132,6 +132,9 @@ function find_Border_Intersections(A,B){
 function displayPath(target,height){
 	var geometry = new THREE.Geometry()
 	var v
+
+	if(!target.length>0){return}
+
 	for(var ii=0;ii<target[0].length;ii++){
 		v = new THREE.Vector3(target[0][ii].X,height,target[0][ii].Y)
 		geometry.vertices.push(v)
