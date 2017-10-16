@@ -210,19 +210,6 @@ var Border_Widget = function(dad){
 		}
 		border.reverse()
 
-		var quads = quadra(border)
-		for(var ii=0;ii<quads.length;ii++){
-			var geometry = new THREE.Geometry()
-
-			for(var jj=0;jj<quads[ii].length;jj++){
-				geometry.vertices.push(quads[ii][jj])
-			}
-			geometry.vertices.push(quads[ii][0])
-
-			var temp = new THREE.Line(geometry,DEF_BORDER_MATERIAL)
-			objects.push(temp)
-		}
-
 		this.object.material = SEL_BORDER_MATERIAL
 
 		return objects

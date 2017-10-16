@@ -129,7 +129,7 @@ function find_Border_Intersections(A,B){
 	return product
 }
 
-function displayPath(target,height){
+function displayPath(target, height){
 	var geometry = new THREE.Geometry()
 	var v
 
@@ -140,6 +140,24 @@ function displayPath(target,height){
 		geometry.vertices.push(v)
 	}
 	v = new THREE.Vector3(target[0][0].X,height,target[0][0].Y)
+	geometry.vertices.push(v)
+	var line = new THREE.Line(geometry)
+	reality.add(line)
+}
+
+function displayVectorArray(target, height){
+	var geometry = new THREE.Geometry()
+	var v
+
+	if(!target.length>0){return}
+
+	for(var ii=0;ii<target[0].length;ii++){
+		v = new THREE.Vector3(target[0][ii])
+		v.y = height
+		geometry.vertices.push(v)
+	}
+	v = new THREE.Vector3(target[0][0])
+	v.y = height
 	geometry.vertices.push(v)
 	var line = new THREE.Line(geometry)
 	reality.add(line)

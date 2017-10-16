@@ -1,8 +1,9 @@
-
 var PRIM_SOLID = function(){
 	this.vertices = []
 	this.sides = []
+	this.side_types = []
 	this.materials = []
+	this.noise_function = 0
 	this.genSideText = function(id,side){
 		var uAxis = this.vertices[this.sides[side][1]].clone().sub(this.vertices[this.sides[side][0]])
 		var vAxis = this.vertices[this.sides[side][1]].clone().sub(this.vertices[this.sides[side][2]])
@@ -53,12 +54,164 @@ var PRIM_SOLID = function(){
 		}\n'
 		return [total,id]
 	}
+	this.genDispText = function(id,side){
+		var uAxis = this.vertices[this.sides[side][1]].clone().sub(this.vertices[this.sides[side][0]])
+		var vAxis = this.vertices[this.sides[side][1]].clone().sub(this.vertices[this.sides[side][2]])
+		uAxis.normalize()
+		vAxis.normalize()
+		var normy = uAxis.clone()
+		normy.cross(vAxis)
+		normy.normalize()
+
+		if(Math.abs(normy.y)>.999){
+			uAxis.set(-1,0,0)
+			vAxis.set(0,0,1)
+		}else if(Math.abs(normy.y)<.0001){
+			uAxis.set(-normy.z,0,-normy.x)
+			vAxis.set(0,-1,0)
+		}else{
+			console.log(normy)
+			uAxis.y*=-1
+		}
+
+		var POWER = 3
+		var V_Width = Math.pow(2,POWER)+1
+		var T_Width = Math.pow(2,POWER)
+
+		var total = '		side\n\
+		{\n\
+			"id" "'+(id++)+'"\n\
+			"plane" "('+
+				-this.vertices[this.sides[side][0]].x+' '+
+				this.vertices[this.sides[side][0]].z+' '+
+				this.vertices[this.sides[side][0]].y+') ('+
+				-this.vertices[this.sides[side][1]].x+' '+
+				this.vertices[this.sides[side][1]].z+' '+
+				this.vertices[this.sides[side][1]].y+') ('+
+				-this.vertices[this.sides[side][2]].x+' '+
+				this.vertices[this.sides[side][2]].z+' '+
+				this.vertices[this.sides[side][2]].y+')"\n\
+			"material" "'
+		total += this.materials[side].export
+		total += '"\n\
+			"uaxis" "['+
+				uAxis.x+' '+
+				uAxis.z+' '+
+				uAxis.y+' 0] 0.25"\n\
+			"vaxis" "['+
+				vAxis.x+' '+
+				vAxis.z+' '+
+				vAxis.y+' 0] 0.25"\n\
+			"rotation" "0"\n\
+			"lightmapsscale" "16"\n\
+			"smoothing_groups" "0"\n\
+			"dispinfo" "16"\n\
+			{\n\
+				"power" "3"\n\
+				"startposition" "['+
+					-this.vertices[this.sides[side][0]].x+' '+
+					this.vertices[this.sides[side][0]].z+' '+
+					this.vertices[this.sides[side][0]].y+']"\n\
+				"elevation" "0"\n\
+      	"subdiv" "0"\n'
+
+		//Normals
+		total += '				normals\n'
+		total += '      	{\n'
+		for(var xx=0;xx<V_Width;xx++){
+			total += '					"row' + xx + '" "'
+			for(var yy=0;yy<V_Width;yy++){
+				total += '0 0 0 '
+			}
+			total += '"\n'
+		}
+		total += '      	}\n'
+
+		//Distances
+		total += '				distances\n'
+		total += '      	{\n'
+		for(var xx=0;xx<V_Width;xx++){
+			total += '					"row' + xx + '" "'
+			for(var yy=0;yy<V_Width;yy++){
+				total += '0 '
+			}
+			total += '"\n'
+		}
+		total += '      	}\n'
+
+		//Offsets
+		total += '				offsets\n'
+		total += '      	{\n'
+		for(var xx=0;xx<V_Width;xx++){
+			total += '					"row' + xx + '" "'
+			for(var yy=0;yy<V_Width;yy++){
+				total += '0 0 0 '
+			}
+			total += '"\n'
+		}
+		total += '      	}\n'
+
+		//Offset Normals
+		total += '				offset_normals\n'
+		total += '      	{\n'
+		for(var xx=0;xx<V_Width;xx++){
+			total += '					"row' + xx + '" "'
+			for(var yy=0;yy<V_Width;yy++){
+				total += '0 0 0 '
+			}
+			total += '"\n'
+		}
+		total += '      	}\n'
+
+
+		//Alpha
+		total += '				alphas\n'
+		total += '      	{\n'
+		for(var xx=0;xx<V_Width;xx++){
+			total += '					"row' + xx + '" "'
+			for(var yy=0;yy<V_Width;yy++){
+				total += '0 '
+			}
+			total += '"\n'
+		}
+		total += '      	}\n'
+
+		//triangle tags
+		total += '				triangle_tags\n'
+		total += '      	{\n'
+		for(var xx=0;xx<T_Width;xx++){
+			total += '					"row' + xx + '" "'
+			for(var yy=0;yy<T_Width;yy++){
+				total += '9 9 '
+			}
+			total += '"\n'
+		}
+		total += '      	}\n'
+
+		//allowed_verts
+		total += '				allowed_verts\n'
+		total += '      	{\n'
+		total += '      		"10" "'
+		for(var xx=0;xx<V_Width;xx++){
+			total += '-1 '
+		}
+		total += '"\n'
+		total += '      	}\n'
+
+		total += '			}\n'
+		total += '		}\n'
+	}
 	this.genText = function(id){
-		var total = '	solid \n\
-	{\n\
+		var total = '	solid \n'
+		total += '	{\n\
 		"id" "'+(id++)+'"\n'
 		for(var ii=0;ii<this.sides.length;ii++){
-			var product = this.genSideText(id,ii)
+			if(this.side_types.length>ii && this.side_types[ii]){
+				var product = this.genDispText(id,ii)
+			}
+			else{
+				var product = this.genSideText(id,ii)
+			}
 			total+=product[0]
 			id = product[1]
 		}
@@ -468,7 +621,7 @@ var PRIM_SURFACE = function(border,normal){
 
 			for(var jj=0;jj<shapes[ii].length;jj++){
 				product.vertices.push(
-					reals[shapes[ii][jj]].clone().sub(this.normal.clone().multiplyScalar(-this.thickness)),
+					this.normal.clone().multiplyScalar(-this.thickness).add(reals[shapes[ii][jj]]),
 					reals[shapes[ii][jj]].clone()
 				)
 				var A = 2*jj + 1
@@ -582,4 +735,50 @@ var PRIM_RAMP = function(o_border,f_border,height,elevation){
 		}
 		return worldObjects
 	}
+}
+
+var PRIM_DISP_SURFACE = function(o_border,height_function){
+
+	this.thickness = 8
+	this.normal = normal
+	this.exportVMF = function(){
+		var worldObjects = []
+
+		var splits = this.findDivision()
+		var reals = splits[0]
+		var shapes = splits[1]
+
+		for(var ii=0;ii<shapes.length;ii++){
+			var product = new PRIM_SOLID()
+
+			//var upper = []
+			var lower = []
+
+			for(var jj=0;jj<shapes[ii].length;jj++){
+				product.vertices.push(
+					this.normal.clone().multiplyScalar(-this.thickness).add(reals[shapes[ii][jj]]),
+					reals[shapes[ii][jj]].clone()
+				)
+				var A = 2*jj + 1
+				var B = 2*jj
+				var C = (2*jj + 2) % (2 * shapes[ii].length)
+				product.sides.push([C,B,A])
+				//upper.push(A)
+				lower.push(B)
+				product.materials.push(this.edge_material)
+			}
+			//upper.reverse()
+			product.sides.push(lower)
+			//product.sides.push(upper)
+
+			product.materials.push(
+				this.back_material,
+				this.front_material
+			)
+
+			worldObjects.push(product)
+		}
+		return worldObjects
+	}
+
 }

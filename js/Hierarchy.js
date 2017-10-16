@@ -1403,31 +1403,42 @@ class Hamr_Region_Element extends Hamr_Element{
 			}
 		}
 
-		if(terra==0){return []}
-
-		for(var ii=0;ii<this.children.length;ii++){
-			if(this.children[ii].name == "Building"){
-				var footprint = this.children[ii].calculate_FootPrint()
-				for(var jj=0;jj<footprint.length;jj++){
-					terra.subtract(footprint[jj])
+		if(terra!=0){
+			for(var ii=0;ii<this.children.length;ii++){
+				if(this.children[ii].name == "Building"){
+					var footprint = this.children[ii].calculate_FootPrint()
+					for(var jj=0;jj<footprint.length;jj++){
+						terra.subtract(footprint[jj])
+					}
 				}
 			}
+
+			var reals = terra.gen_Simple_Paths()
+			for(var ii=0;ii<reals.length;ii++){
+				//reals[ii].reverse()
+				var quads = quadra(reals[ii])
+
+				for(var jj=0;jj<quads.length;jj++){
+
+					//quads[jj].reverse()
+					var temp_border = new Border_Widget()
+					for(var kk=0;kk<quads[jj].length;kk++){
+						temp_border.vertices.push(new Point_Widget(quads[jj][kk], temp_border)) //replace with append
+					}
+
+					var surface = new PRIM_SURFACE(temp_border,new THREE.Vector3(0,-1,0))
+					surface.front_material = Mat_Ground
+					surface.edge_material = Mat_Nodraw
+					surface.back_material = Mat_Nodraw
+					surface.detail = true
+					product.push(surface)
+				}
+			}
+
 		}
 
-		var reals = terra.gen_Simple_Paths()
-		for(var jj=0;jj<reals.length;jj++){
-			reals[jj].reverse()
-			var temp_border = new Border_Widget()
-			for(var kk=0;kk<reals[jj].length;kk++){
-				temp_border.vertices.push(new Point_Widget(reals[jj][kk],temp_border))
-			}
-			var surface = new PRIM_SURFACE(temp_border,new THREE.Vector3(0,-1,0))
-			surface.front_material = Mat_Ground
-			surface.edge_material = Mat_Nodraw
-			surface.back_material = Mat_Nodraw
-			surface.detail = true
-			product.push(surface)
-		}
+		//generate skyboxes
+		//window covers vs encapsulation?
 
 		return product
 	}
