@@ -105,7 +105,7 @@ var PRIM_SOLID = function(){
 			"rotation" "0"\n\
 			"lightmapsscale" "16"\n\
 			"smoothing_groups" "0"\n\
-			"dispinfo" "16"\n\
+			"dispinfo"\n\
 			{\n\
 				"power" "3"\n\
 				"startposition" "['+
@@ -200,6 +200,8 @@ var PRIM_SOLID = function(){
 
 		total += '			}\n'
 		total += '		}\n'
+
+		return [total, id]
 	}
 	this.genText = function(id){
 		var total = '	solid \n'
@@ -621,7 +623,7 @@ var PRIM_SURFACE = function(border,normal){
 
 			for(var jj=0;jj<shapes[ii].length;jj++){
 				product.vertices.push(
-					this.normal.clone().multiplyScalar(-this.thickness).add(reals[shapes[ii][jj]]),
+					this.normal.clone().multiplyScalar(this.thickness).add(reals[shapes[ii][jj]]),
 					reals[shapes[ii][jj]].clone()
 				)
 				var A = 2*jj + 1
@@ -737,48 +739,231 @@ var PRIM_RAMP = function(o_border,f_border,height,elevation){
 	}
 }
 
-var PRIM_DISP_SURFACE = function(o_border,height_function){
-
+var PRIM_DISP_SURFACE = function(border,normal){
+	this.front_material = Mat_Blue_Floor
+	this.edge_material = Mat_Blue_Floor
+	this.back_material = Mat_Nodraw
 	this.thickness = 8
 	this.normal = normal
+
+	this.quad = new THREE.Quaternion().setFromUnitVectors(this.normal,new THREE.Vector3(0,1,0))
+	this.rot = findAngle(this.normal.x,this.normal.z)
+	this.realCoords = [border.flatten()]
+	this.project = function(product){
+		for(var ii=0;ii<product.length;ii++){
+			product[ii].applyQuaternion(this.quad)
+			product[ii].applyAxisAngle(new THREE.Vector3(0,1,0),this.rot)
+		}
+		//verify offset!
+		return product
+	}
+	var product = border.flatten()
+	product = this.project(product)
+	this.offset = product[0].y
+	this.path = vector_Array_To_Path(product)
+	if(!ClipperLib.Clipper.Orientation(this.path[0])){
+		ClipperLib.Clipper.ReversePaths(this.path)
+		this.realCoords[0].reverse()
+	}
+	this.subtract = function(border){
+		var target = vector2path(this.project(border.flatten()))
+		var tempCoords = border.flatten()
+
+		var cpr = new ClipperLib.Clipper();
+		cpr.StrictlySimple = true;
+		if(!ClipperLib.Clipper.Orientation(target[0])){
+			ClipperLib.Clipper.ReversePaths(target)
+			tempCoords.reverse()
+		}
+		var solution_paths = new ClipperLib.Paths();
+
+
+		cpr.AddPaths(this.path, ClipperLib.PolyType.ptSubject, true);
+		cpr.AddPaths(target, ClipperLib.PolyType.ptClip, true);
+
+		cpr.Execute(ClipperLib.ClipType.ctDifference, solution_paths, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+		ClipperLib.Clipper.CleanPolygons(solution_paths)
+		var realCoords = []
+		for(var ii=0;ii<solution_paths.length;ii++){
+			var pathCoords = []
+			for(var jj=0;jj<solution_paths[ii].length;jj++){
+				for(var kk=0;kk<target[0].length;kk++){
+					if(solution_paths[ii][jj].X == target[0][kk].X && solution_paths[ii][jj].Y == target[0][kk].Y){
+						pathCoords.push(tempCoords[kk].clone())
+						break
+					}
+				}
+				if(pathCoords.length>jj){continue}
+				for(var kk=0;kk<this.path.length;kk++){
+					for(var ll=0;ll<this.path[kk].length;ll++){
+						if(solution_paths[ii][jj].X == this.path[kk][ll].X && solution_paths[ii][jj].Y == this.path[kk][ll].Y){
+							pathCoords.push(this.realCoords[kk][ll].clone())
+							break
+						}
+					}
+					if(pathCoords.length>jj){break}
+				}
+			}
+			realCoords.push(pathCoords)
+			if(pathCoords.length<solution_paths[ii].length){
+				console.log("Could not find Vertices!")
+				console.log(solution_paths, this.path, target)
+			}
+		}
+		this.realCoords = realCoords
+		this.path = solution_paths
+	}
+	this.simplify = function(){
+		//this function can break, later add a check that verifies target insert edges do not cross other edges
+		var pathed = []
+		var postions = []
+
+		for(var ii=0;ii<this.path[0].length;ii++){
+			pathed.push(this.path[0][ii])
+			postions.push(this.realCoords[0][ii])
+		}
+
+		var included = []
+		for(var ii=1;ii<this.path.length;ii++){
+			included.push(ii)
+		}
+
+		while(included.length>0){
+			var min_score = 10000000, score
+			var target_path = included[0]
+			var target_index = 0
+			var target_insert = 0
+			for(var ii=0;ii<included.length;ii++){
+				for(var jj=0;jj<this.path[included[ii]].length;jj++){
+					for(var kk=0;kk<pathed.length;kk++){
+						score = this.realCoords[included[ii]][jj].distanceTo(postions[kk])
+						if(score<min_score){
+							min_score = score
+							target_path = included[ii]
+							target_index = jj
+							target_insert = kk
+						}
+					}
+				}
+			}
+			var insert_path = []
+			var insert_pos = []
+			for(var ii=0;ii<this.path[target_path].length;ii++){
+				var index = (ii+target_index)%(this.path[target_path].length)
+				insert_path.push(this.path[target_path][index])
+				insert_pos.push(this.realCoords[target_path][index])
+			}
+			insert_path.push(this.path[target_path][target_index])
+			insert_pos.push(this.realCoords[target_path][target_index])
+			insert_path.push(pathed[target_insert])
+			insert_pos.push(postions[target_insert])
+
+			insert_path.unshift(target_insert+1,0)
+			insert_pos.unshift(target_insert+1,0)
+			Array.prototype.splice.apply(pathed, insert_path);
+			Array.prototype.splice.apply(postions, insert_pos);
+			included.splice(included.indexOf(target_path),1)
+		}
+
+
+		for(var ii=0;ii<pathed.length;ii++){
+			var temp = new THREE.Vector3(pathed[ii].X,0,pathed[ii].Y)
+			pathed[ii] = temp
+		}
+
+		return [pathed,postions]
+	}
+	this.genMesh = function(){
+		//start with just outer border
+		var flat = this.simplify()
+		var faces = decompose_Shape(flat[0])
+		var geo = new THREE.Geometry()
+		for(var ii=0;ii<faces.length;ii++){
+			geo.faces.push(new THREE.Face3(faces[ii][0],faces[ii][1],faces[ii][2]))
+		}
+		geo.vertices = flat[1]
+		geo.computeFaceNormals()
+		geo.computeVertexNormals()
+		geo.computeMorphNormals()
+		return [new THREE.Mesh(geo,this.front_material.editor)]
+	}
+	this.display = function(){
+		for(var ii=0;ii<this.path.length;ii++){
+			var geometry = new THREE.Geometry()
+			var v
+			for(var jj=0;jj<this.path[ii].length;jj++){
+				v = new THREE.Vector3(this.path[ii][jj].X,track,this.path[ii][jj].Y)
+				geometry.vertices.push(v.clone())
+			}
+			v.add(new THREE.Vector3(0,5,0))
+			geometry.vertices.push(v)
+			//var line = new THREE.Line(geometry)
+			//reality.add(line)
+		}
+		track += 20
+	}
+	this.findDivision = function(){
+		var flat = this.simplify()
+		var faces = decompose_Shape(flat[0])
+		var shapes = merge_Tris(faces,flat[0])
+		var reals = flat[1].slice(0)
+		var finals = shapes.slice(0)
+		for(var ii=0;ii<flat.length;ii++){
+			flat[0].push(flat[0].splice(0,1)[0])
+			flat[1].push(flat[1].splice(0,1)[0])
+			faces = decompose_Shape(flat[0])
+			shapes = merge_Tris(faces,flat[0])
+			if(shapes.length<finals.length){
+				reals = flat[1].slice(0)
+				finals = shapes.slice(0)
+			}
+		}
+		return [reals,finals]
+	}
 	this.exportVMF = function(){
 		var worldObjects = []
 
-		var splits = this.findDivision()
-		var reals = splits[0]
-		var shapes = splits[1]
+		//var splits = this.findDivision()
 
-		for(var ii=0;ii<shapes.length;ii++){
-			var product = new PRIM_SOLID()
+		//var reals = splits[0]
+		//var shapes = splits[1]
+		for(var ii=0;ii<this.realCoords.length;ii++){
+			var shapes = quadra(this.realCoords[ii].slice(0).reverse())
 
-			//var upper = []
-			var lower = []
+			for(var jj=0;jj<shapes.length;jj++){
+				var product = new PRIM_SOLID()
 
-			for(var jj=0;jj<shapes[ii].length;jj++){
-				product.vertices.push(
-					this.normal.clone().multiplyScalar(-this.thickness).add(reals[shapes[ii][jj]]),
-					reals[shapes[ii][jj]].clone()
+				var upper = []
+				var lower = []
+
+				for(var kk=0;kk<shapes[jj].length;kk++){
+					product.vertices.push(
+						this.normal.clone().multiplyScalar(this.thickness).add(shapes[jj][kk]),
+						shapes[jj][kk].clone()
+					)
+					var A = 2*kk + 1
+					var B = 2*kk
+					var C = (2*kk + 2) % (2 * shapes[jj].length)
+					product.sides.push([C,B,A])
+					product.side_types.push(0)
+					upper.push(A)
+					lower.push(B)
+					product.materials.push(this.edge_material)
+				}
+				upper.reverse()
+				product.sides.push(lower)
+				product.side_types.push(0)
+				product.sides.push(upper)
+				product.side_types.push(1)
+
+				product.materials.push(
+					this.back_material,
+					this.front_material
 				)
-				var A = 2*jj + 1
-				var B = 2*jj
-				var C = (2*jj + 2) % (2 * shapes[ii].length)
-				product.sides.push([C,B,A])
-				//upper.push(A)
-				lower.push(B)
-				product.materials.push(this.edge_material)
+
+				worldObjects.push(product)
 			}
-			//upper.reverse()
-			product.sides.push(lower)
-			//product.sides.push(upper)
-
-			product.materials.push(
-				this.back_material,
-				this.front_material
-			)
-
-			worldObjects.push(product)
 		}
 		return worldObjects
 	}
-
 }

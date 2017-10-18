@@ -1390,9 +1390,10 @@ class Hamr_Region_Element extends Hamr_Element{
 		//this.settingtypes.push()
 	}
 	gen_Preview_Obj(){
+		var depth = 16
+		var terra = 0
 		var product = []
 
-		var terra = 0
 		for(var ii=0;ii<this.children.length;ii++){
 			if(this.children[ii].name == "Terrain"){
 				if(terra==0){
@@ -1414,25 +1415,29 @@ class Hamr_Region_Element extends Hamr_Element{
 			}
 
 			var reals = terra.gen_Simple_Paths()
+
 			for(var ii=0;ii<reals.length;ii++){
-				//reals[ii].reverse()
-				var quads = quadra(reals[ii])
-
-				for(var jj=0;jj<quads.length;jj++){
-
-					//quads[jj].reverse()
-					var temp_border = new Border_Widget()
-					for(var kk=0;kk<quads[jj].length;kk++){
-						temp_border.vertices.push(new Point_Widget(quads[jj][kk], temp_border)) //replace with append
-					}
-
-					var surface = new PRIM_SURFACE(temp_border,new THREE.Vector3(0,-1,0))
-					surface.front_material = Mat_Ground
-					surface.edge_material = Mat_Nodraw
-					surface.back_material = Mat_Nodraw
-					surface.detail = true
-					product.push(surface)
+				reals[ii].reverse()
+				//var quads = quadra(reals[ii])
+				var disp_border = new Border_Widget()
+				//disp_border.displacement = true
+				var under_border = new Border_Widget()
+				for(var kk=0;kk<reals[ii].length;kk++){
+					disp_border.vertices.push(new Point_Widget(reals[ii][kk], disp_border))
+					under_border.vertices.push(new Point_Widget(new THREE.Vector3(0,-depth,0).add(reals[ii][kk]),under_border))
 				}
+
+				var disp_surface = new PRIM_DISP_SURFACE(disp_border,new THREE.Vector3(0,-1,0))
+				var under_surface = new PRIM_SURFACE(under_border,new THREE.Vector3(0,-1,0))
+				disp_surface.front_material = Mat_Ground
+				under_surface.front_material = Mat_Nodraw
+				disp_surface.edge_material = Mat_Nodraw
+				under_surface.edge_material = Mat_Nodraw
+				disp_surface.back_material = Mat_Nodraw
+				under_surface.back_material = Mat_Nodraw
+				disp_surface.detail = true
+				under_surface.detail = true
+				product.push(disp_surface, under_surface)
 			}
 
 		}

@@ -1,6 +1,6 @@
 //Tests
 
-var DEBUG_WEDGE = true
+var DEBUG_WEDGE = false
 
 function FollowingSees(polygon, pred_a, pred_b){
   //is difference vector within eachs internal angle (within theta of the normal)

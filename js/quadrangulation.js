@@ -100,7 +100,7 @@ function IsFollowingConvex(ref){
   A.x = -A.z
   A.z = ox
 
-  return A.dot(B) >= 0
+  return A.dot(B) > 0
 }
 function IsFollowingReflexive(ref){
   return !IsFollowingConvex(ref)
@@ -578,23 +578,6 @@ function HALFify(polygon){
   return inner
 }
 
-/*function CutQuadEar(focus){
-  if((validate([x0,x1,x2],border)&&validate([x0,x2,x3],border)) ||
-    (validate([x0,x1,x3],border)&&validate([x1,x2,x3],border))){
-
-    quads.push([border[x0],border[x1],border[x2],border[x3]])
-    if(x1>x2){
-      border.splice(x1,1)
-      border.splice(x2,1)
-    }else{
-      border.splice(x2,1)
-      border.splice(x1,1)
-    }
-    found = true
-    break
-  }
-}*/
-
 function quadra(border){
   //given a vertex list as a border
   var quads = [];
@@ -726,6 +709,7 @@ function quadra(border){
   //merge nonconvex quads with nonconvex quads resulting in hexagons
   var borders = []
   for(var ii=0;ii<final.length;ii++){
+    DEBUG_CURVES.push(vector_Array_To_Path(final[ii].ListPointsRaw()))
     borders.push(final[ii].ListPointsRaw())
   }
 
