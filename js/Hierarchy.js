@@ -1306,6 +1306,18 @@ class Hamr_Building_Element extends Hamr_Element{
 	proto_Clone(){
 		return new Hamr_Building_Element()
 	}
+	height(){
+		var height = 0
+		for(var ii=0;ii<this.children.length;ii++){
+			if(this.children[ii].name=="Interior Room"){
+				var suggested_height = this.children[ii].elevation + this.children[ii].height
+				if(suggested_height>height){
+					height = suggested_height
+				}
+			}
+		}
+		return height - this.elevation
+	}
 }
 
 class Hamr_Terrain_Element extends Hamr_Element{
@@ -1370,6 +1382,9 @@ class Hamr_Terrain_Element extends Hamr_Element{
 	proto_Clone(){
 		return new Hamr_Building_Element()
 	}
+	height(){
+		return 0
+	}
 }
 
 class Hamr_Region_Element extends Hamr_Element{
@@ -1391,10 +1406,7 @@ class Hamr_Region_Element extends Hamr_Element{
 	}
 	gen_Preview_Obj(){
 		var depth = this.children[0].elevation-16
-		var height = this.children[0].elevation+256;
-		if(this.children[0].height){
-			height += this.children[0].height
-		}
+		var height = this.children[0].elevation+this.children[0].height()+256;
 		var terra = 0
 		var sum = 0
 		var product = []
@@ -1403,10 +1415,7 @@ class Hamr_Region_Element extends Hamr_Element{
 			if(depth>this.children[ii].elevation-16){
 				depth = this.children[ii].elevation-16
 			}
-			var suggested_height = this.children[ii].elevation+256;
-			if(this.children[ii].height){
-				suggested_height += this.children[ii].height
-			}
+			var suggested_height = this.children[ii].elevation+this.children[ii].height()+256;
 			if(height<suggested_height){
 				height = suggested_height
 			}

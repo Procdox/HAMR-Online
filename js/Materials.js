@@ -26,6 +26,6 @@ Mat_Playerclip.export = "tools/PlayerClip"
 
 var Mat_Skybox = new Material()
 Mat_Skybox.editor = new THREE.MeshPhongMaterial({color: 0xBCF0F3})
-Mat_Skybox.export = "tools/Skybox"
+Mat_Skybox.export = "tools/toolsskybox"
 
 var Mat_Nodraw = new Material()
