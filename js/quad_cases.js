@@ -97,7 +97,7 @@ function case_1_3(hexagon){
   hexagon.poly.edge = steiner_stuff.tails[0]
   var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-  DEBUG_CURVES.push(SetupClip(face_a))
+  //DEBUG_CURVES.push(SetupClip(face_a))
 
   var r = case_0(face_a)
   r.push(hexagon.poly)
@@ -142,9 +142,9 @@ function case_2_1(hexagon){
     else{
       console.log("case_2_1_b")
       var clip = SetupClip(hexagon.poly)
-      clip = GenFollowingWedge(clip,hexagon.A)
-      clip = GenFollowingWedge(clip,hexagon.C)
-      clip = GenLeftPlane(clip,hexagon.B,hexagon.D)
+      clip = GenFollowingWedge(clip,hexagon.A, true)
+      clip = GenFollowingWedge(clip,hexagon.C, true)
+      clip = GenLeftPlane(clip,hexagon.B,hexagon.D, true)
 
       var w = PointFromClip(clip)
 
@@ -155,7 +155,7 @@ function case_2_1(hexagon){
       hexagon.poly.edge = steiner_stuff.tails[0]
       var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-      DEBUG_CURVES.push(SetupClip(face_a))
+      //DEBUG_CURVES.push(SetupClip(face_a))
 
       var r = case_0(face_a)
       r.push(hexagon.poly)
@@ -202,7 +202,7 @@ function case_2_2(hexagon){
     hexagon.poly.edge = steiner_stuff.tails[0]
     var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-    DEBUG_CURVES.push(SetupClip(face_a))
+    //DEBUG_CURVES.push(SetupClip(face_a))
 
     var r = case_0(face_a)
     r.push(hexagon.poly)
@@ -284,7 +284,7 @@ function case_2_3(hexagon){
     hexagon.poly.edge = steiner_stuff.tails[0]
     var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-    DEBUG_CURVES.push(SetupClip(face_a))
+    //DEBUG_CURVES.push(SetupClip(face_a))
 
     var r =case_0(face_a)
     r.push(hexagon.poly)
@@ -362,7 +362,7 @@ function case_3_1(hexagon){
         hexagon.poly.edge = steiner_stuff.tails[0]
         var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-        DEBUG_CURVES.push(SetupClip(face_a))
+        //DEBUG_CURVES.push(SetupClip(face_a))
 
         var r = case_0(face_a)
         r.push(hexagon.poly)
@@ -388,7 +388,7 @@ function case_3_1(hexagon){
         hexagon.poly.edge = steiner_stuff.tails[0]
         var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-        DEBUG_CURVES.push(SetupClip(face_a))
+        //DEBUG_CURVES.push(SetupClip(face_a))
 
         var r = case_0(face_a)
         r.push(hexagon.poly)
@@ -428,7 +428,7 @@ function case_3_2(hexagon){
         hexagon.poly.edge = steiner_stuff.tails[0]
         var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-        DEBUG_CURVES.push(SetupClip(face_a))
+        //DEBUG_CURVES.push(SetupClip(face_a))
 
         var r = case_0(face_a)
         r.push(hexagon.poly)
@@ -449,7 +449,7 @@ function case_3_2(hexagon){
         hexagon.poly.edge = steiner_stuff.tails[0]
         var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-        DEBUG_CURVES.push(SetupClip(face_a))
+        //DEBUG_CURVES.push(SetupClip(face_a))
 
         var r = case_0(face_a)
         r.push(hexagon.poly)
@@ -473,7 +473,7 @@ function case_3_2(hexagon){
         hexagon.poly.edge = steiner_stuff.tails[0]
         var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-        DEBUG_CURVES.push(SetupClip(face_a))
+        //DEBUG_CURVES.push(SetupClip(face_a))
 
         var r = case_0(face_a)
         r.push(hexagon.poly)
@@ -494,7 +494,7 @@ function case_3_2(hexagon){
         hexagon.poly.edge = steiner_stuff.tails[0]
         var face_a = new HALF_Face(steiner_stuff.tails[1])
 
-        DEBUG_CURVES.push(SetupClip(face_a))
+        //DEBUG_CURVES.push(SetupClip(face_a))
 
         var r = case_0(face_a)
         r.push(hexagon.poly)

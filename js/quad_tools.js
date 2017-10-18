@@ -106,6 +106,10 @@ function GenFollowingWedge(clip, p, debug=false){
   var right = p.next_edge.next_edge.point.point.clone()
     .sub(origin).normalize()
 
+  if(left.dot(right)<-.997){
+    return GenLeftPlane(clip,p,p.next_edge,debug)
+  }
+
   var n = left.clone().add(right).normalize()
 
   if(IsFollowingReflexive(p)){

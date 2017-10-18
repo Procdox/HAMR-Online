@@ -1390,41 +1390,87 @@ class Hamr_Region_Element extends Hamr_Element{
 		//this.settingtypes.push()
 	}
 	gen_Preview_Obj(){
-		var depth = 16
+		var depth = this.children[0].elevation-16
+		var height = this.children[0].elevation+256;
+		if(this.children[0].height){
+			height += this.children[0].height
+		}
 		var terra = 0
+		var sum = 0
 		var product = []
 
 		for(var ii=0;ii<this.children.length;ii++){
+			if(depth>this.children[ii].elevation-16){
+				depth = this.children[ii].elevation-16
+			}
+			var suggested_height = this.children[ii].elevation+256;
+			if(this.children[ii].height){
+				suggested_height += this.children[ii].height
+			}
+			if(height<suggested_height){
+				height = suggested_height
+			}
 			if(this.children[ii].name == "Terrain"){
 				if(terra==0){
 					terra = new Hamr_Path(this.children[ii].control.flatten())
-				}else{
+				}
+				else{
 					terra.add(this.children[ii].control.flatten())
+				}
+				if(sum==0){
+					sum = new Hamr_Path(this.children[ii].control.flatten())
+				}
+				else{
+					sum.add(this.children[ii].control.flatten())
+				}
+			}
+		}
+
+		for(var ii=0;ii<this.children.length;ii++){
+			if(this.children[ii].name == "Building"){
+				var footprint = this.children[ii].calculate_FootPrint()
+				for(var jj=0;jj<footprint.length;jj++){
+					if(terra!=0){
+						terra.subtract(footprint[jj])
+					}
+					if(sum==0){
+						sum = new Hamr_Path(footprint[jj])
+					}
+					else{
+						sum.add(footprint[jj])
+					}
 				}
 			}
 		}
 
 		if(terra!=0){
-			for(var ii=0;ii<this.children.length;ii++){
-				if(this.children[ii].name == "Building"){
-					var footprint = this.children[ii].calculate_FootPrint()
-					for(var jj=0;jj<footprint.length;jj++){
-						terra.subtract(footprint[jj])
-					}
-				}
-			}
-
 			var reals = terra.gen_Simple_Paths()
 
 			for(var ii=0;ii<reals.length;ii++){
 				reals[ii].reverse()
+
+				var inner = reals[ii].slice(0)
+				inner.push(inner[0])
+				var outer = Inset_Path(inner, -8)
+
+				//for(var kk=0;kk<inner.length-1;kk++){
+				//	var wall = new PRIM_WALL([inner[kk],inner[kk+1]],[outer[kk],outer[kk+1]],
+				//		-depth,depth)
+				//	wall.exterior = true
+				//	product.push(wall)// = wall_products.concat(wall)
+				//}
+
+
+
 				//var quads = quadra(reals[ii])
 				var disp_border = new Border_Widget()
 				//disp_border.displacement = true
 				var under_border = new Border_Widget()
 				for(var kk=0;kk<reals[ii].length;kk++){
 					disp_border.vertices.push(new Point_Widget(reals[ii][kk], disp_border))
-					under_border.vertices.push(new Point_Widget(new THREE.Vector3(0,-depth,0).add(reals[ii][kk]),under_border))
+					var underpoint = reals[ii][kk].clone()
+					underpoint.y = depth
+					under_border.vertices.push(new Point_Widget(underpoint,under_border))
 				}
 
 				var disp_surface = new PRIM_DISP_SURFACE(disp_border,new THREE.Vector3(0,-1,0))
@@ -1442,6 +1488,42 @@ class Hamr_Region_Element extends Hamr_Element{
 
 		}
 
+		if(sum!=0){
+			var reals = sum.gen_Simple_Paths()
+
+			for(var ii=0;ii<reals.length;ii++){
+				var ceil_border = new Border_Widget()
+				for(var kk=0;kk<reals[ii].length;kk++){
+					ceil_border.vertices.push(new Point_Widget(new THREE.Vector3(0,height,0).add(reals[ii][kk]), ceil_border))
+				}
+
+				var ceil_surface = new PRIM_SURFACE(ceil_border,new THREE.Vector3(0,1,0))
+				ceil_surface.front_material = Mat_Skybox
+				ceil_surface.edge_material = Mat_Skybox
+				ceil_surface.back_material = Mat_Skybox
+				ceil_surface.detail = true
+				product.push(ceil_surface)
+
+
+				reals[ii].reverse()
+
+				var inner = reals[ii].slice(0)
+				inner.push(inner[0])
+				var outer = Inset_Path(inner, -8)
+
+				for(var kk=0;kk<inner.length-1;kk++){
+					var wall = new PRIM_WALL([inner[kk],inner[kk+1]],[outer[kk],outer[kk+1]],
+						depth,height)
+					wall.front_material = Mat_Skybox
+					wall.edge_material = Mat_Skybox
+					wall.back_material = Mat_Skybox
+					wall.exterior = true
+					product.push(wall)// = wall_products.concat(wall)
+				}
+
+
+			}
+		}
 		//generate skyboxes
 		//window covers vs encapsulation?
 
