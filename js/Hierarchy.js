@@ -1,105 +1,3 @@
-function find_Line_Intersection(A_S,A_E,B_S,B_E){
-	// if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
-	var denominator, a, b, numerator1, numerator2
-	var result = new THREE.Vector3()
-	denominator = ((B_E.z - B_S.z) * (A_E.x - A_S.x)) - ((B_E.x - B_S.x) * (A_E.z - A_S.z))
-	if (denominator == 0) {
-		return false
-	}
-	a = A_S.z - B_S.z;
-	b = A_S.x - B_S.x;
-	numerator1 = ((B_E.x - B_S.x) * a) - ((B_E.z - B_S.z) * b)
-	numerator2 = ((A_E.x - A_S.x) * a) - ((A_E.z - A_S.z) * b)
-	a = numerator1 / denominator
-	b = numerator2 / denominator
-
-	// if we cast these lines infinitely in both directions, they intersect here:
-	result.x = A_S.x + (a * (A_E.x - A_S.x))
-	result.z = A_S.z + (a * (A_E.z - A_S.z))
-	/*
-		// it is worth noting that this should be the same as:
-		x = B_S.x + (b * (B_E.x - B_S.x));
-		y = B_S.x + (b * (B_E.z - B_S.z));
-		*/
-	// if line1 is a segment and line2 is infinite, they intersect if:
-	if (a <= 0 || a >= 1) {
-		return false
-	}
-	// if line2 is a segment and line1 is infinite, they intersect if:
-	if (b <= 0 || b >= 1) {
-		return false
-	}
-	// if line1 and line2 are segments, they intersect if both of the above are true
-	return result
-}
-
-function find_Border_Intersections(A,B){
-	var product = []
-	for(var ii=0;ii<A.length;ii++){
-		for(var jj=0;jj<B.length;jj++){
-			var result = find_Line_Intersection(A[ii],A[(ii+1)%A.length],B[jj],B[(jj+1)%B.length])
-			if(result){
-				product.push([ii,jj,result])
-			}
-		}
-	}
-	return product
-}
-
-function displayPath(target,height){
-	var geometry = new THREE.Geometry()
-	var v
-	var t = 0
-	for(var ii=0;ii<target.length;ii++){
-		v = target[ii].clone()
-		//v.x += 10*Math.random() - 5
-		//v.y += 10*Math.random() - 5
-		//v.z += 10*Math.random() - 5
-		//v.y = height + t*2
-		t++
-		geometry.vertices.push(v.clone())
-	}
-	v = target[0].clone()
-	geometry.vertices.push(v)
-	var line = new THREE.Line(geometry)
-	reality.add(line)
-}
-
-function Inset_Path(Target,width){
-
-	var splits = []
-	splits.push(Target[0].clone().sub(Target[Target.length-2]).normalize())
-	for(var ii=1;ii<Target.length;ii++){
-		splits.push(Target[ii].clone().sub(Target[ii-1]).normalize())
-	}
-
-	//now to create the decension angles
-	var raw_attractor
-	var offset
-
-	var geometry = []
-	for(var ii=0;ii<Target.length-1;ii++){
-		//going toward the center is not the bisector
-		raw_attractor = splits[ii].clone().sub(splits[ii+1]);
-		raw_attractor.normalize();
-
-		var back_angle = Math.acos(raw_attractor.dot(splits[ii]));//angle between
-		raw_attractor.divideScalar(Math.sin(back_angle));
-		raw_attractor.multiplyScalar(width);
-		var test_angle = new THREE.Vector3();
-		test_angle.x = -splits[ii].z;
-		test_angle.z = splits[ii].x;
-		if(test_angle.dot(splits[ii+1])<0){//convex
-			geometry.push(Target[ii].clone().sub(raw_attractor))
-		}else{ //concave
-			geometry.push(Target[ii].clone().add(raw_attractor))
-		}
-	}
-	geometry.push(geometry[0].clone());
-
-	return geometry
-}
-
 class Hamr_Path{
 	find_Intersections(vector_array){
 		var product = []
@@ -427,6 +325,8 @@ class Hamr_Element{
 	}
 	list_Preview_Objs(){
 		//generates a list of preview THREE JS objects
+		this.update()
+
 		var objects = this.gen_Preview_Obj()
 		for(var ii=0;ii<this.children.length;ii++){
 			objects = objects.concat(this.children[ii].list_Preview_Objs())
@@ -994,6 +894,161 @@ class Hamr_Portal_Element extends Hamr_Element{
 	}
 }
 
+class Hamr_Spiral_Element extends Hamr_Element{
+	constructor(id){
+		super(id)
+		this.save_delimiter = "l"
+		this.save_signature = "k"
+		this.name = "Spiral"
+
+		this.inner_radius = 64
+		this.outer_radius = 192
+		this.step_divisions = 5
+		this.step_height = 8
+		this.steps_per_quarter = 16
+		this.clockwise = true
+
+		//this.childtypes.push()
+		//this.childtypetitles.push()
+
+		//this.methods.push()
+		//this.methodtitles.push()
+
+		//this.width = 192
+		//this.height = 160
+		//this.framewidth = 8
+		this.settings.push("inner_radius","outer_radius","step_height","steps_per_quarter","clockwise")
+		this.settingtitles.push("Inner Radius","Outer Radius","Step Height","Steps","Clockwise")
+		this.settingtypes.push(1,1,1,1,2)
+	}
+	gen_Preview_Obj(){
+		var products = []
+		var step_angle = Math.PI/(2*this.steps_per_quarter)
+		var mid_radius = (this.outer_radius + this.inner_radius) / 2
+
+		for(var theta = 0; theta<this.steps_per_quarter;theta++){
+			var start_angle = theta*step_angle
+			var end_angle = (theta+1)*step_angle
+
+			if(this.clockwise){
+				start_angle *= -1
+				end_angle *= -1
+			}
+			var top = theta*this.step_height
+
+			var under_border = new Border_Widget()
+			under_border.vertices.push(
+				new Point_Widget(
+					new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
+					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
+					under_border),
+				new Point_Widget(
+					new THREE.Vector3(this.outer_radius*Math.sin(end_angle), top,
+					this.outer_radius*Math.cos(end_angle)).add(this.control.position),
+					under_border),
+				new Point_Widget(
+					new THREE.Vector3(this.inner_radius*Math.sin(end_angle), top,
+					this.inner_radius*Math.cos(end_angle)).add(this.control.position),
+					under_border),
+				new Point_Widget(
+					new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
+					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
+					under_border)
+			)
+
+			var ramp_border = [
+
+				new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
+					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
+				new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
+					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
+				new THREE.Vector3(this.outer_radius*Math.sin(end_angle), top,
+					this.outer_radius*Math.cos(end_angle)).add(this.control.position),
+				new THREE.Vector3(this.inner_radius*Math.sin(end_angle), top,
+					this.inner_radius*Math.cos(end_angle)).add(this.control.position)
+			]
+
+			var inner_edge_border = [
+				new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
+					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
+				new THREE.Vector3(mid_radius*Math.sin(end_angle), top,
+					mid_radius*Math.cos(end_angle)).add(this.control.position),
+				new THREE.Vector3(this.inner_radius*Math.sin(end_angle), top,
+					this.inner_radius*Math.cos(end_angle)).add(this.control.position)
+			]
+
+			var outer_edge_border = [
+				new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
+					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
+				new THREE.Vector3(this.outer_radius*Math.sin(end_angle), top,
+					this.outer_radius*Math.cos(end_angle)).add(this.control.position),
+				new THREE.Vector3(mid_radius*Math.sin(end_angle), top,
+					mid_radius*Math.cos(end_angle)).add(this.control.position)
+			]
+
+			var mid_edge_border = [
+				new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
+					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
+				new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
+					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
+				new THREE.Vector3(mid_radius*Math.sin(end_angle), top,
+					mid_radius*Math.cos(end_angle)).add(this.control.position)
+			]
+
+			if(this.clockwise){
+				under_border.vertices.reverse()
+				inner_edge_border.reverse()
+				outer_edge_border.reverse()
+				mid_edge_border.reverse()
+			}
+
+			var step = new PRIM_SURFACE(under_border,new THREE.Vector3(0,-1,0))
+			var inner_ramp = new PRIM_RAMP(ramp_border,inner_edge_border,this.step_height,top)
+			var outer_ramp = new PRIM_RAMP(ramp_border,outer_edge_border,this.step_height,top)
+			var mid_ramp = new PRIM_RAMP(ramp_border,mid_edge_border,this.step_height,top)
+
+			if(this.clockwise){
+				inner_ramp.heights[0] = 0
+				inner_ramp.heights[1] = this.step_height
+				inner_ramp.heights[2] = this.step_height
+
+				outer_ramp.heights[0] = 0
+				outer_ramp.heights[1] = this.step_height
+				outer_ramp.heights[2] = this.step_height
+
+				mid_ramp.heights[0] = 0
+				mid_ramp.heights[1] = 0
+				mid_ramp.heights[2] = this.step_height
+			}
+			else{
+				inner_ramp.heights[0] = this.step_height
+				inner_ramp.heights[1] = this.step_height
+				inner_ramp.heights[2] = 0
+
+				outer_ramp.heights[0] = this.step_height
+				outer_ramp.heights[1] = this.step_height
+				outer_ramp.heights[2] = 0
+
+				mid_ramp.heights[0] = this.step_height
+				mid_ramp.heights[1] = 0
+				mid_ramp.heights[2] = 0
+			}
+
+			step.front_material = Mat_Blue_Floor
+			step.edge_material = Mat_Blu_Wall
+			step.back_material = Mat_Nodraw
+
+			products.push(step, inner_ramp, outer_ramp, mid_ramp)
+		}
+
+
+		return products
+	}
+	proto_Clone(){
+		return new Hamr_Portal_Element()
+	}
+}
+
 class Hamr_Exterior_Element extends Hamr_Element{
 	constructor(id){
 		super(id)
@@ -1046,9 +1101,10 @@ class Hamr_Building_Element extends Hamr_Element{
 		this.save_delimiter = "["
 		this.save_signature = "B"
 		this.name = "Building"
+		this.foundation_height = 0
 
-		this.childtypes.push("add_Exterior","add_Portal","add_Room")
-		this.childtypetitles.push("Exterior","Portal","Room")
+		this.childtypes.push("add_Exterior","add_Portal","add_Room","add_Spiral")
+		this.childtypetitles.push("Exterior","Portal","Room","Spiral")
 
 		//this.methods.push("add_Control","remove_Control")
 		//this.methodtitles.push("Add Border Node","Remove Node")
@@ -1079,6 +1135,9 @@ class Hamr_Building_Element extends Hamr_Element{
 				}
 			}
 		}
+		if(footprint==0){
+			return []
+		}
 		return footprint.gen_Simple_Paths()
 	}
 
@@ -1088,15 +1147,25 @@ class Hamr_Building_Element extends Hamr_Element{
 		var valid_interior = []
 		var valid_paperclip = []
 		var valid_doors = []
+		var height_register = []
 		for(var ii=0;ii<this.children.length;ii++){
+			var register = this.children[ii].elevation - this.foundation_height
+
 			if(this.children[ii].name=="Exterior Wall"){
+				this.children[ii].elevation = this.foundation_height
+				this.children[ii].height += register
 				valid_exterior.push(this.children[ii])
 				if(this.children[ii].playerclip){
 					valid_paperclip.push(this.children[ii])
 				}
 			}else if(this.children[ii].name=="Interior Room"){
-				this.children[ii].elevation -= 16
-				this.children[ii].height += 32
+				if(this.children[ii].foundation){
+					this.children[ii].elevation = this.foundation_height
+				}else{
+					this.children[ii].elevation -= 16
+					register = 16
+				}
+				this.children[ii].height += register + 32
 				valid_exterior.push(this.children[ii])
 				valid_interior.push(this.children[ii])
 				if(this.children[ii].playerclip){
@@ -1104,7 +1173,10 @@ class Hamr_Building_Element extends Hamr_Element{
 				}
 			}else{
 				valid_doors.push(this.children[ii])
+				register = 0
 			}
+
+			height_register.push(register)
 		}
 
 
@@ -1283,9 +1355,13 @@ class Hamr_Building_Element extends Hamr_Element{
 
 
 		//fix interiors
-		for(var ii=0;ii<valid_interior.length;ii++){
-			valid_interior[ii].elevation+=16
-			valid_interior[ii].height-=32
+		for(var ii=0;ii<this.children.length;ii++){
+			this.children[ii].height -= height_register[ii]
+			this.children[ii].elevation += height_register[ii]
+			if(this.children[ii].name=="Interior Room"){
+				this.children[ii].height-=32
+			}
+
 		}
 
 		//interior cuts calculation
@@ -1368,6 +1444,11 @@ class Hamr_Building_Element extends Hamr_Element{
 		//calculate noclip blocks
 		return product
 	}
+	add_Spiral(){
+		var my_child = new Hamr_Spiral_Element(this.safe_ID())
+		PROTO = my_child
+		CALL = "add_Child"
+	}
 	add_Exterior(){
 		var my_child = new Hamr_Exterior_Element(this.safe_ID())
 		PROTO = my_child
@@ -1407,6 +1488,24 @@ class Hamr_Building_Element extends Hamr_Element{
 	}
 	proto_Clone(){
 		return new Hamr_Building_Element()
+	}
+	get_Min_Height(){
+		return this.elevation - 16
+	}
+	get_Max_Height(){
+		if(this.children.length==0){
+			return 0
+		}
+		var height = 0
+		for(var ii=0;ii<this.children.length;ii++){
+			if(this.children[ii].name=="Interior Room"){
+				var suggested_height = this.children[ii].elevation + this.children[ii].height
+				if(suggested_height>height){
+					height = suggested_height
+				}
+			}
+		}
+		return height
 	}
 }
 
@@ -1472,6 +1571,15 @@ class Hamr_Terrain_Element extends Hamr_Element{
 	proto_Clone(){
 		return new Hamr_Building_Element()
 	}
+	height(){
+		return 0
+	}
+	get_Min_Height(){
+		return this.elevation-16
+	}
+	get_Max_Height(){
+		return this.elevation
+	}
 }
 
 class Hamr_Region_Element extends Hamr_Element{
@@ -1480,6 +1588,8 @@ class Hamr_Region_Element extends Hamr_Element{
 		this.save_delimiter = "|"
 		this.save_signature = "R"
 		this.name = "Region"
+		this.sky_height = 0
+		this.foundation_height = 0
 
 		this.childtypes.push("add_Building","add_Terrain")
 		this.childtypetitles.push("Building","Terrain")
@@ -1491,45 +1601,157 @@ class Hamr_Region_Element extends Hamr_Element{
 		//this.settingtitles.push()
 		//this.settingtypes.push()
 	}
+	update(){
+		super.update()
+		if(this.children.length>0){
+			this.sky_height = this.children[0].get_Max_Height()
+			this.foundation_height = this.children[0].get_Min_Height()
+
+			for(var ii=1;ii<this.children.length;ii++){
+				var sug_sky = this.children[ii].get_Max_Height()
+				var sug_fon = this.children[ii].get_Min_Height()
+
+				if(sug_sky>this.sky_height){
+					this.sky_height = sug_sky
+				}
+				if(sug_fon<this.foundation_height){
+					this.foundation_height = sug_fon
+				}
+			}
+
+			this.sky_height += 256
+
+			for(var ii=0;ii<this.children.length;ii++){
+				this.children[ii].foundation_height = this.foundation_height
+			}
+		}
+	}
 	gen_Preview_Obj(){
+		if(this.children.length==0){
+			return []
+		}
+		var terra = 0
+		var sum = 0
 		var product = []
 
-		var terra = 0
 		for(var ii=0;ii<this.children.length;ii++){
 			if(this.children[ii].name == "Terrain"){
 				if(terra==0){
 					terra = new Hamr_Path(this.children[ii].control.flatten())
-				}else{
+				}
+				else{
 					terra.add(this.children[ii].control.flatten())
+				}
+				if(sum==0){
+					sum = new Hamr_Path(this.children[ii].control.flatten())
+				}
+				else{
+					sum.add(this.children[ii].control.flatten())
 				}
 			}
 		}
-
-		if(terra==0){return []}
 
 		for(var ii=0;ii<this.children.length;ii++){
 			if(this.children[ii].name == "Building"){
 				var footprint = this.children[ii].calculate_FootPrint()
 				for(var jj=0;jj<footprint.length;jj++){
-					terra.subtract(footprint[jj])
+					if(terra!=0){
+						terra.subtract(footprint[jj])
+					}
+					if(sum==0){
+						sum = new Hamr_Path(footprint[jj])
+					}
+					else{
+						sum.add(footprint[jj])
+					}
 				}
 			}
 		}
 
-		var reals = terra.gen_Simple_Paths()
-		for(var jj=0;jj<reals.length;jj++){
-			reals[jj].reverse()
-			var temp_border = new Border_Widget()
-			for(var kk=0;kk<reals[jj].length;kk++){
-				temp_border.vertices.push(new Point_Widget(reals[jj][kk],temp_border))
+		if(terra!=0){
+			var reals = terra.gen_Simple_Paths()
+
+			for(var ii=0;ii<reals.length;ii++){
+				reals[ii].reverse()
+
+				var inner = reals[ii].slice(0)
+				inner.push(inner[0])
+				var outer = Inset_Path(inner, -8)
+
+				//for(var kk=0;kk<inner.length-1;kk++){
+				//	var wall = new PRIM_WALL([inner[kk],inner[kk+1]],[outer[kk],outer[kk+1]],
+				//		-depth,depth)
+				//	wall.exterior = true
+				//	product.push(wall)// = wall_products.concat(wall)
+				//}
+
+
+
+				//var quads = quadra(reals[ii])
+				var disp_border = new Border_Widget()
+				//disp_border.displacement = true
+				var under_border = new Border_Widget()
+				for(var kk=0;kk<reals[ii].length;kk++){
+					disp_border.vertices.push(new Point_Widget(reals[ii][kk], disp_border))
+					var underpoint = reals[ii][kk].clone()
+					underpoint.y = this.foundation_height
+					under_border.vertices.push(new Point_Widget(underpoint,under_border))
+				}
+
+				var disp_surface = new PRIM_DISP_SURFACE(disp_border,new THREE.Vector3(0,-1,0))
+				var under_surface = new PRIM_SURFACE(under_border,new THREE.Vector3(0,-1,0))
+				disp_surface.front_material = Mat_Ground
+				under_surface.front_material = Mat_Nodraw
+				disp_surface.edge_material = Mat_Nodraw
+				under_surface.edge_material = Mat_Nodraw
+				disp_surface.back_material = Mat_Nodraw
+				under_surface.back_material = Mat_Nodraw
+				disp_surface.detail = true
+				under_surface.detail = true
+				product.push(disp_surface, under_surface)
 			}
-			var surface = new PRIM_SURFACE(temp_border,new THREE.Vector3(0,-1,0))
-			surface.front_material = Mat_Ground
-			surface.edge_material = Mat_Nodraw
-			surface.back_material = Mat_Nodraw
-			surface.detail = true
-			product.push(surface)
+
 		}
+
+		if(sum!=0){
+			var reals = sum.gen_Simple_Paths()
+
+			for(var ii=0;ii<reals.length;ii++){
+				var ceil_border = new Border_Widget()
+				for(var kk=0;kk<reals[ii].length;kk++){
+					var overpoint = reals[ii][kk].clone()
+					overpoint.y = this.sky_height
+					ceil_border.vertices.push(new Point_Widget(overpoint, ceil_border))
+				}
+
+				var ceil_surface = new PRIM_SURFACE(ceil_border,new THREE.Vector3(0,1,0))
+				ceil_surface.front_material = Mat_Skybox
+				ceil_surface.edge_material = Mat_Skybox
+				ceil_surface.back_material = Mat_Skybox
+				ceil_surface.detail = true
+				product.push(ceil_surface)
+
+				reals[ii].reverse()
+
+				var inner = reals[ii].slice(0)
+				inner.push(inner[0])
+				var outer = Inset_Path(inner, -8)
+
+				for(var kk=0;kk<inner.length-1;kk++){
+					var wall = new PRIM_WALL([inner[kk],inner[kk+1]],[outer[kk],outer[kk+1]],
+						this.foundation_height,this.sky_height)
+					wall.front_material = Mat_Skybox
+					wall.edge_material = Mat_Skybox
+					wall.back_material = Mat_Skybox
+					wall.exterior = true
+					product.push(wall)// = wall_products.concat(wall)
+				}
+
+
+			}
+		}
+		//generate skyboxes
+		//window covers vs encapsulation?
 
 		return product
 	}

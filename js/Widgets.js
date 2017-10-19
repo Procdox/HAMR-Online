@@ -317,9 +317,13 @@ var Border_Widget = function(dad){
 	this.edit = function(){
 		var objects = []
 
+		var border = []
+
 		for(var ii=0;ii<this.vertices.length;ii++){
+			border.push(this.vertices[ii].position)
 			objects = objects.concat(this.vertices[ii].edit())
 		}
+		border.reverse()
 
 		this.object.material = SEL_BORDER_MATERIAL
 
