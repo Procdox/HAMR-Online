@@ -22,7 +22,7 @@ Mat_Ground.export = "dev/reflectivity_30"
 
 var Mat_Playerclip = new Material()
 Mat_Playerclip.editor = new THREE.MeshPhongMaterial({color: 0x8B4684})
-Mat_Playerclip.export = "tools/toolsplayerClip"
+Mat_Playerclip.export = "tools/PlayerClip"
 
 var Mat_Skybox = new Material()
 Mat_Skybox.editor = new THREE.MeshPhongMaterial({color: 0xBCF0F3})

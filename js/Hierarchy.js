@@ -894,161 +894,6 @@ class Hamr_Portal_Element extends Hamr_Element{
 	}
 }
 
-class Hamr_Spiral_Element extends Hamr_Element{
-	constructor(id){
-		super(id)
-		this.save_delimiter = "l"
-		this.save_signature = "k"
-		this.name = "Spiral"
-
-		this.inner_radius = 64
-		this.outer_radius = 192
-		this.step_divisions = 5
-		this.step_height = 8
-		this.steps_per_quarter = 16
-		this.clockwise = true
-
-		//this.childtypes.push()
-		//this.childtypetitles.push()
-
-		//this.methods.push()
-		//this.methodtitles.push()
-
-		//this.width = 192
-		//this.height = 160
-		//this.framewidth = 8
-		this.settings.push("inner_radius","outer_radius","step_height","steps_per_quarter","clockwise")
-		this.settingtitles.push("Inner Radius","Outer Radius","Step Height","Steps","Clockwise")
-		this.settingtypes.push(1,1,1,1,2)
-	}
-	gen_Preview_Obj(){
-		var products = []
-		var step_angle = Math.PI/(2*this.steps_per_quarter)
-		var mid_radius = (this.outer_radius + this.inner_radius) / 2
-
-		for(var theta = 0; theta<this.steps_per_quarter;theta++){
-			var start_angle = theta*step_angle
-			var end_angle = (theta+1)*step_angle
-
-			if(this.clockwise){
-				start_angle *= -1
-				end_angle *= -1
-			}
-			var top = theta*this.step_height
-
-			var under_border = new Border_Widget()
-			under_border.vertices.push(
-				new Point_Widget(
-					new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
-					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
-					under_border),
-				new Point_Widget(
-					new THREE.Vector3(this.outer_radius*Math.sin(end_angle), top,
-					this.outer_radius*Math.cos(end_angle)).add(this.control.position),
-					under_border),
-				new Point_Widget(
-					new THREE.Vector3(this.inner_radius*Math.sin(end_angle), top,
-					this.inner_radius*Math.cos(end_angle)).add(this.control.position),
-					under_border),
-				new Point_Widget(
-					new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
-					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
-					under_border)
-			)
-
-			var ramp_border = [
-
-				new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
-					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
-				new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
-					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
-				new THREE.Vector3(this.outer_radius*Math.sin(end_angle), top,
-					this.outer_radius*Math.cos(end_angle)).add(this.control.position),
-				new THREE.Vector3(this.inner_radius*Math.sin(end_angle), top,
-					this.inner_radius*Math.cos(end_angle)).add(this.control.position)
-			]
-
-			var inner_edge_border = [
-				new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
-					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
-				new THREE.Vector3(mid_radius*Math.sin(end_angle), top,
-					mid_radius*Math.cos(end_angle)).add(this.control.position),
-				new THREE.Vector3(this.inner_radius*Math.sin(end_angle), top,
-					this.inner_radius*Math.cos(end_angle)).add(this.control.position)
-			]
-
-			var outer_edge_border = [
-				new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
-					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
-				new THREE.Vector3(this.outer_radius*Math.sin(end_angle), top,
-					this.outer_radius*Math.cos(end_angle)).add(this.control.position),
-				new THREE.Vector3(mid_radius*Math.sin(end_angle), top,
-					mid_radius*Math.cos(end_angle)).add(this.control.position)
-			]
-
-			var mid_edge_border = [
-				new THREE.Vector3(this.inner_radius*Math.sin(start_angle), top,
-					this.inner_radius*Math.cos(start_angle)).add(this.control.position),
-				new THREE.Vector3(this.outer_radius*Math.sin(start_angle), top,
-					this.outer_radius*Math.cos(start_angle)).add(this.control.position),
-				new THREE.Vector3(mid_radius*Math.sin(end_angle), top,
-					mid_radius*Math.cos(end_angle)).add(this.control.position)
-			]
-
-			if(this.clockwise){
-				under_border.vertices.reverse()
-				inner_edge_border.reverse()
-				outer_edge_border.reverse()
-				mid_edge_border.reverse()
-			}
-
-			var step = new PRIM_SURFACE(under_border,new THREE.Vector3(0,-1,0))
-			var inner_ramp = new PRIM_RAMP(ramp_border,inner_edge_border,this.step_height,top)
-			var outer_ramp = new PRIM_RAMP(ramp_border,outer_edge_border,this.step_height,top)
-			var mid_ramp = new PRIM_RAMP(ramp_border,mid_edge_border,this.step_height,top)
-
-			if(this.clockwise){
-				inner_ramp.heights[0] = 0
-				inner_ramp.heights[1] = this.step_height
-				inner_ramp.heights[2] = this.step_height
-
-				outer_ramp.heights[0] = 0
-				outer_ramp.heights[1] = this.step_height
-				outer_ramp.heights[2] = this.step_height
-
-				mid_ramp.heights[0] = 0
-				mid_ramp.heights[1] = 0
-				mid_ramp.heights[2] = this.step_height
-			}
-			else{
-				inner_ramp.heights[0] = this.step_height
-				inner_ramp.heights[1] = this.step_height
-				inner_ramp.heights[2] = 0
-
-				outer_ramp.heights[0] = this.step_height
-				outer_ramp.heights[1] = this.step_height
-				outer_ramp.heights[2] = 0
-
-				mid_ramp.heights[0] = this.step_height
-				mid_ramp.heights[1] = 0
-				mid_ramp.heights[2] = 0
-			}
-
-			step.front_material = Mat_Blue_Floor
-			step.edge_material = Mat_Blu_Wall
-			step.back_material = Mat_Nodraw
-
-			products.push(step, inner_ramp, outer_ramp, mid_ramp)
-		}
-
-
-		return products
-	}
-	proto_Clone(){
-		return new Hamr_Portal_Element()
-	}
-}
-
 class Hamr_Exterior_Element extends Hamr_Element{
 	constructor(id){
 		super(id)
@@ -1103,8 +948,8 @@ class Hamr_Building_Element extends Hamr_Element{
 		this.name = "Building"
 		this.foundation_height = 0
 
-		this.childtypes.push("add_Exterior","add_Portal","add_Room","add_Spiral")
-		this.childtypetitles.push("Exterior","Portal","Room","Spiral")
+		this.childtypes.push("add_Exterior","add_Portal","add_Room")
+		this.childtypetitles.push("Exterior","Portal","Room")
 
 		//this.methods.push("add_Control","remove_Control")
 		//this.methodtitles.push("Add Border Node","Remove Node")
@@ -1443,11 +1288,6 @@ class Hamr_Building_Element extends Hamr_Element{
 
 		//calculate noclip blocks
 		return product
-	}
-	add_Spiral(){
-		var my_child = new Hamr_Spiral_Element(this.safe_ID())
-		PROTO = my_child
-		CALL = "add_Child"
 	}
 	add_Exterior(){
 		var my_child = new Hamr_Exterior_Element(this.safe_ID())
