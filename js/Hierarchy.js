@@ -1171,8 +1171,10 @@ class Hamr_Building_Element extends Hamr_Element{
 				if(this.children[ii].playerclip){
 					valid_paperclip.push(this.children[ii])
 				}
-			}else{
+			}else if(this.children[ii].name =="Portal"){
 				valid_doors.push(this.children[ii])
+				register = 0
+			}else{
 				register = 0
 			}
 
@@ -1480,6 +1482,11 @@ class Hamr_Building_Element extends Hamr_Element{
 				temp.parse_Load_Text(tuple[0].slice(1))
 			}else if(tuple[0][0]=="R"){
 				this.add_Room()
+				var temp = PROTO
+				this.add_Child(new THREE.Vector3(),PROTO)
+				temp.parse_Load_Text(tuple[0].slice(1))
+			}else if(tuple[0][0]=="k"){
+				this.add_Spiral()
 				var temp = PROTO
 				this.add_Child(new THREE.Vector3(),PROTO)
 				temp.parse_Load_Text(tuple[0].slice(1))
