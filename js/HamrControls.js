@@ -151,22 +151,10 @@ THREE.HamrControls = function ( camera ) {
 	}
 
 	var onMouseDown = function( event ){
-<<<<<<< HEAD
 		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
 		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
 
 		raycaster.setFromCamera( mouse, camera );
-		if(event.button==0){
-			//drag/place event
-			if(CALL=="h_move"){
-				var intersects = raycaster.intersectObjects( OBJECTS )
-
-				if(intersects.length>0){
-					selectedPoint = intersects[ 0 ].point;
-
-					HELD = intersects[0].object.dad
-					if(HELD){
-=======
 		if(!this.input_lock){
 			this.input_lock = true;
 
@@ -183,7 +171,6 @@ THREE.HamrControls = function ( camera ) {
 						selectedPoint = intersects[ 0 ].point;
 
 						HELD = intersects[0].object.dad
->>>>>>> refs/remotes/origin/master
 						makeGrid(HELD.height())
 
 						intersects = raycaster.intersectObject( Grid )
@@ -191,20 +178,6 @@ THREE.HamrControls = function ( camera ) {
 
 						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
 						document.addEventListener( 'mouseup', onMouseUpDrag, false );
-<<<<<<< HEAD
-					}
-				}
-			}else if(CALL=="v_move"){
-				var intersects = raycaster.intersectObjects( OBJECTS )
-
-				if(intersects.length>0){
-					selectedPoint = intersects[ 0 ].point;
-
-					HELD = intersects[0].object.dad
-					if(HELD){
-=======
-					}else{
-						this.input_lock = false
 					}
 				}else if(CALL=="v_move"){
 					var intersects = raycaster.intersectObjects( OBJECTS )
@@ -213,7 +186,6 @@ THREE.HamrControls = function ( camera ) {
 						selectedPoint = intersects[ 0 ].point;
 
 						HELD = intersects[0].object.dad
->>>>>>> refs/remotes/origin/master
 						Pole.position.set(HELD.position.x,0,HELD.position.z);
 
 						intersects = raycaster.intersectObject( Pole )
@@ -221,9 +193,6 @@ THREE.HamrControls = function ( camera ) {
 
 						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
 						document.addEventListener( 'mouseup', onMouseUpDrag, false );
-<<<<<<< HEAD
-					}
-=======
 					}else{
 						this.input_lock = false
 					}
@@ -239,16 +208,6 @@ THREE.HamrControls = function ( camera ) {
 					}
 					this.input_lock = false
 					makeGrid(0)
->>>>>>> refs/remotes/origin/master
-				}
-			}else{
-				this.input_lock = false;
-				if(event.button==1){
-					//select event
-					var intersects = raycaster.intersectObjects( SELECTABLES )
-					if(intersects.length>0){
-						intersects[0].object.dad.dad.choose()
-					}
 				}
 			}
 		}
