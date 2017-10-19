@@ -7,6 +7,8 @@ THREE.HamrControls = function ( camera ) {
 
 	var scope = this;
 
+	this.input_lock = false
+
 	camera.rotation.set( 0, 0, 0 );
 
 	var pitchObject = new THREE.Object3D();
@@ -149,6 +151,7 @@ THREE.HamrControls = function ( camera ) {
 	}
 
 	var onMouseDown = function( event ){
+<<<<<<< HEAD
 		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
 		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
 
@@ -163,6 +166,24 @@ THREE.HamrControls = function ( camera ) {
 
 					HELD = intersects[0].object.dad
 					if(HELD){
+=======
+		if(!this.input_lock){
+			this.input_lock = true;
+
+			mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
+			mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
+
+			raycaster.setFromCamera( mouse, camera );
+			if(event.button==0){
+				//drag/place event
+				if(CALL=="h_move"){
+					var intersects = raycaster.intersectObjects( OBJECTS )
+
+					if(intersects.length>0){
+						selectedPoint = intersects[ 0 ].point;
+
+						HELD = intersects[0].object.dad
+>>>>>>> refs/remotes/origin/master
 						makeGrid(HELD.height())
 
 						intersects = raycaster.intersectObject( Grid )
@@ -170,6 +191,7 @@ THREE.HamrControls = function ( camera ) {
 
 						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
 						document.addEventListener( 'mouseup', onMouseUpDrag, false );
+<<<<<<< HEAD
 					}
 				}
 			}else if(CALL=="v_move"){
@@ -180,6 +202,18 @@ THREE.HamrControls = function ( camera ) {
 
 					HELD = intersects[0].object.dad
 					if(HELD){
+=======
+					}else{
+						this.input_lock = false
+					}
+				}else if(CALL=="v_move"){
+					var intersects = raycaster.intersectObjects( OBJECTS )
+
+					if(intersects.length>0){
+						selectedPoint = intersects[ 0 ].point;
+
+						HELD = intersects[0].object.dad
+>>>>>>> refs/remotes/origin/master
 						Pole.position.set(HELD.position.x,0,HELD.position.z);
 
 						intersects = raycaster.intersectObject( Pole )
@@ -187,25 +221,35 @@ THREE.HamrControls = function ( camera ) {
 
 						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
 						document.addEventListener( 'mouseup', onMouseUpDrag, false );
+<<<<<<< HEAD
 					}
+=======
+					}else{
+						this.input_lock = false
+					}
+				}else{
+					makeGrid(FOCUS.elevation)
+					var intersects = raycaster.intersectObjects( [Grid] )
+
+					if(intersects.length>0){
+						selectedPoint = intersects[ 0 ].point;
+						console.log(selectedPoint)
+						FOCUS[CALL](selectedPoint,PROTO)
+
+					}
+					this.input_lock = false
+					makeGrid(0)
+>>>>>>> refs/remotes/origin/master
 				}
 			}else{
-				makeGrid(FOCUS.elevation)
-				var intersects = raycaster.intersectObjects( [Grid] )
-
-				if(intersects.length>0){
-					selectedPoint = intersects[ 0 ].point;
-					console.log(selectedPoint)
-					FOCUS[CALL](selectedPoint,PROTO)
-
+				this.input_lock = false;
+				if(event.button==1){
+					//select event
+					var intersects = raycaster.intersectObjects( SELECTABLES )
+					if(intersects.length>0){
+						intersects[0].object.dad.dad.choose()
+					}
 				}
-				makeGrid(0)
-			}
-		}else if(event.button==1){
-			//select event
-			var intersects = raycaster.intersectObjects( SELECTABLES )
-			if(intersects.length>0){
-				intersects[0].object.dad.dad.choose()
 			}
 		}
 	}
@@ -235,43 +279,47 @@ THREE.HamrControls = function ( camera ) {
 	}
 
 	function onMouseUpDrag(  event  ) {
-		document.removeEventListener( 'mousemove', onMouseMoveDrag, false );
-		document.removeEventListener( 'mouseup', onMouseUpDrag, false );
+		if(this.input_lock){
+			this.input_lock = false
 
-		mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
-		mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
+			document.removeEventListener( 'mousemove', onMouseMoveDrag, false );
+			document.removeEventListener( 'mouseup', onMouseUpDrag, false );
 
-		raycaster.setFromCamera( mouse, camera );
-		if(CALL=="h_move"){
-			var intersects = raycaster.intersectObject( Grid );
-			if(intersects.length>0){
+			mouse.x = ( event.clientX / renderer.domElement.width ) * 2 - 1;
+			mouse.y = - ( event.clientY / renderer.domElement.height ) * 2 + 1;
 
-				while(HELD.feature){
-					HELD = HELD.dad
+			raycaster.setFromCamera( mouse, camera );
+			if(CALL=="h_move"){
+				var intersects = raycaster.intersectObject( Grid );
+				if(intersects.length>0){
+
+					while(HELD.feature){
+						HELD = HELD.dad
+					}
+
+					HELD.snap()
+					HELD.choose()
+
+					WORLD.update_Display()
 				}
 
-				HELD.snap()
-				HELD.choose()
+				makeGrid(0)
+			}else{
+				var intersects = raycaster.intersectObject( Pole );
+				if(intersects.length>0){
 
-				WORLD.update_Display()
-			}
+					while(HELD.feature){
+						HELD = HELD.dad
+					}
 
-			makeGrid(0)
-		}else{
-			var intersects = raycaster.intersectObject( Pole );
-			if(intersects.length>0){
+					HELD.snap()
+					HELD.choose()
 
-				while(HELD.feature){
-					HELD = HELD.dad
+					WORLD.update_Display()
 				}
 
-				HELD.snap()
-				HELD.choose()
-
-				WORLD.update_Display()
+				Pole.position.set(0,0,0);
 			}
-
-			Pole.position.set(0,0,0);
 		}
 	}
 
