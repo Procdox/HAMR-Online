@@ -325,6 +325,8 @@ class Hamr_Element{
 	}
 	list_Preview_Objs(){
 		//generates a list of preview THREE JS objects
+		this.update()
+
 		var objects = this.gen_Preview_Obj()
 		for(var ii=0;ii<this.children.length;ii++){
 			objects = objects.concat(this.children[ii].list_Preview_Objs())
@@ -944,6 +946,7 @@ class Hamr_Building_Element extends Hamr_Element{
 		this.save_delimiter = "["
 		this.save_signature = "B"
 		this.name = "Building"
+		this.foundation_height = 0
 
 		this.childtypes.push("add_Exterior","add_Portal","add_Room")
 		this.childtypetitles.push("Exterior","Portal","Room")
@@ -986,14 +989,18 @@ class Hamr_Building_Element extends Hamr_Element{
 		var valid_interior = []
 		var valid_paperclip = []
 		var valid_doors = []
+		var height_register = []
 		for(var ii=0;ii<this.children.length;ii++){
+			var registry = this.children[ii].elevation - this.foundation_height
+			height_register.push(registry)
+			this.children[ii].elevation = this.foundation_height
+			this.children[ii].height += registry
 			if(this.children[ii].name=="Exterior Wall"){
 				valid_exterior.push(this.children[ii])
 				if(this.children[ii].playerclip){
 					valid_paperclip.push(this.children[ii])
 				}
 			}else if(this.children[ii].name=="Interior Room"){
-				this.children[ii].elevation -= 16
 				this.children[ii].height += 32
 				valid_exterior.push(this.children[ii])
 				valid_interior.push(this.children[ii])
@@ -1181,9 +1188,13 @@ class Hamr_Building_Element extends Hamr_Element{
 
 
 		//fix interiors
-		for(var ii=0;ii<valid_interior.length;ii++){
-			valid_interior[ii].elevation+=16
-			valid_interior[ii].height-=32
+		for(var ii=0;ii<this.children.length;ii++){
+			this.children[ii].height -= height_register[ii]
+			this.children[ii].elevation += height_register[ii]
+			if(this.children[ii].name=="Interior Room"){
+				this.children[ii].height-=32
+			}
+
 		}
 
 		//interior cuts calculation
@@ -1306,7 +1317,13 @@ class Hamr_Building_Element extends Hamr_Element{
 	proto_Clone(){
 		return new Hamr_Building_Element()
 	}
-	height(){
+	get_Min_Height(){
+		return this.elevation - 16
+	}
+	get_Max_Height(){
+		if(this.children.length==0){
+			return 0
+		}
 		var height = 0
 		for(var ii=0;ii<this.children.length;ii++){
 			if(this.children[ii].name=="Interior Room"){
@@ -1316,7 +1333,7 @@ class Hamr_Building_Element extends Hamr_Element{
 				}
 			}
 		}
-		return height - this.elevation
+		return height
 	}
 }
 
@@ -1385,6 +1402,12 @@ class Hamr_Terrain_Element extends Hamr_Element{
 	height(){
 		return 0
 	}
+	get_Min_Height(){
+		return this.elevation-16
+	}
+	get_Max_Height(){
+		return this.elevation
+	}
 }
 
 class Hamr_Region_Element extends Hamr_Element{
@@ -1393,6 +1416,8 @@ class Hamr_Region_Element extends Hamr_Element{
 		this.save_delimiter = "|"
 		this.save_signature = "R"
 		this.name = "Region"
+		this.sky_height = 0
+		this.foundation_height = 0
 
 		this.childtypes.push("add_Building","add_Terrain")
 		this.childtypetitles.push("Building","Terrain")
@@ -1404,21 +1429,40 @@ class Hamr_Region_Element extends Hamr_Element{
 		//this.settingtitles.push()
 		//this.settingtypes.push()
 	}
+	update(){
+		super.update()
+		if(this.children.length>0){
+			this.sky_height = this.children[0].get_Max_Height()
+			this.foundation_height = this.children[0].get_Min_Height()
+
+			for(var ii=1;ii<this.children.length;ii++){
+				var sug_sky = this.children[ii].get_Max_Height()
+				var sug_fon = this.children[ii].get_Min_Height()
+
+				if(sug_sky>this.sky_height){
+					this.sky_height = sug_sky
+				}
+				if(sug_fon<this.foundation_height){
+					this.foundation_height = sug_fon
+				}
+			}
+
+			this.sky_height += 256
+
+			for(var ii=0;ii<this.children.length;ii++){
+				this.children[ii].foundation_height = this.foundation_height
+			}
+		}
+	}
 	gen_Preview_Obj(){
-		var depth = this.children[0].elevation-16
-		var height = this.children[0].elevation+this.children[0].height()+256;
+		if(this.children.length==0){
+			return []
+		}
 		var terra = 0
 		var sum = 0
 		var product = []
 
 		for(var ii=0;ii<this.children.length;ii++){
-			if(depth>this.children[ii].elevation-16){
-				depth = this.children[ii].elevation-16
-			}
-			var suggested_height = this.children[ii].elevation+this.children[ii].height()+256;
-			if(height<suggested_height){
-				height = suggested_height
-			}
 			if(this.children[ii].name == "Terrain"){
 				if(terra==0){
 					terra = new Hamr_Path(this.children[ii].control.flatten())
@@ -1478,7 +1522,7 @@ class Hamr_Region_Element extends Hamr_Element{
 				for(var kk=0;kk<reals[ii].length;kk++){
 					disp_border.vertices.push(new Point_Widget(reals[ii][kk], disp_border))
 					var underpoint = reals[ii][kk].clone()
-					underpoint.y = depth
+					underpoint.y = this.foundation_height
 					under_border.vertices.push(new Point_Widget(underpoint,under_border))
 				}
 
@@ -1503,7 +1547,9 @@ class Hamr_Region_Element extends Hamr_Element{
 			for(var ii=0;ii<reals.length;ii++){
 				var ceil_border = new Border_Widget()
 				for(var kk=0;kk<reals[ii].length;kk++){
-					ceil_border.vertices.push(new Point_Widget(new THREE.Vector3(0,height,0).add(reals[ii][kk]), ceil_border))
+					var overpoint = reals[ii][kk].clone()
+					overpoint.y = this.sky_height
+					ceil_border.vertices.push(new Point_Widget(overpoint, ceil_border))
 				}
 
 				var ceil_surface = new PRIM_SURFACE(ceil_border,new THREE.Vector3(0,1,0))
@@ -1513,7 +1559,6 @@ class Hamr_Region_Element extends Hamr_Element{
 				ceil_surface.detail = true
 				product.push(ceil_surface)
 
-
 				reals[ii].reverse()
 
 				var inner = reals[ii].slice(0)
@@ -1522,7 +1567,7 @@ class Hamr_Region_Element extends Hamr_Element{
 
 				for(var kk=0;kk<inner.length-1;kk++){
 					var wall = new PRIM_WALL([inner[kk],inner[kk+1]],[outer[kk],outer[kk+1]],
-						depth,height)
+						this.foundation_height,this.sky_height)
 					wall.front_material = Mat_Skybox
 					wall.edge_material = Mat_Skybox
 					wall.back_material = Mat_Skybox
