@@ -178,6 +178,8 @@ THREE.HamrControls = function ( camera ) {
 
 						document.addEventListener( 'mousemove', onMouseMoveDrag, false );
 						document.addEventListener( 'mouseup', onMouseUpDrag, false );
+					}else{
+						this.input_lock = false
 					}
 				}else if(CALL=="v_move"){
 					var intersects = raycaster.intersectObjects( OBJECTS )
@@ -209,6 +211,16 @@ THREE.HamrControls = function ( camera ) {
 					this.input_lock = false
 					makeGrid(0)
 				}
+			}else{
+				this.input_lock = false;
+				if(event.button==1){
+					//select event
+					var intersects = raycaster.intersectObjects( SELECTABLES )
+					if(intersects.length>0){
+						intersects[0].object.dad.dad.choose()
+					}
+				}
+				makeGrid(0)
 			}
 		}
 	}
