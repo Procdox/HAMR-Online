@@ -980,6 +980,9 @@ class Hamr_Building_Element extends Hamr_Element{
 				}
 			}
 		}
+		if(footprint==0){
+			return []
+		}
 		return footprint.gen_Simple_Paths()
 	}
 
@@ -991,17 +994,23 @@ class Hamr_Building_Element extends Hamr_Element{
 		var valid_doors = []
 		var height_register = []
 		for(var ii=0;ii<this.children.length;ii++){
-			var registry = this.children[ii].elevation - this.foundation_height
-			height_register.push(registry)
-			this.children[ii].elevation = this.foundation_height
-			this.children[ii].height += registry
+			var register = this.children[ii].elevation - this.foundation_height
+
 			if(this.children[ii].name=="Exterior Wall"){
+				this.children[ii].elevation = this.foundation_height
+				this.children[ii].height += register
 				valid_exterior.push(this.children[ii])
 				if(this.children[ii].playerclip){
 					valid_paperclip.push(this.children[ii])
 				}
 			}else if(this.children[ii].name=="Interior Room"){
-				this.children[ii].height += 32
+				if(this.children[ii].foundation){
+					this.children[ii].elevation = this.foundation_height
+				}else{
+					this.children[ii].elevation -= 16
+					register = 16
+				}
+				this.children[ii].height += register + 32
 				valid_exterior.push(this.children[ii])
 				valid_interior.push(this.children[ii])
 				if(this.children[ii].playerclip){
@@ -1009,7 +1018,10 @@ class Hamr_Building_Element extends Hamr_Element{
 				}
 			}else{
 				valid_doors.push(this.children[ii])
+				register = 0
 			}
+
+			height_register.push(register)
 		}
 
 
