@@ -1,7 +1,9 @@
 # HAMR-Online
 
 HAMR-Online is an in-browser map maker that allows you to draw room outlines and building blueprints via 2d widgets. It then automatically generates 3d geometry and entities and exports them to a VMF.
+
 It is not currently in development.
+
 More info here: https://tf2maps.net/downloads/hamr-online-a-map-prototyping-tool.2462/
 
 ## Installation
